@@ -1,6 +1,6 @@
 // 访问统计后台：/stats?key=xxx（或输入后存 sessionStorage）。数据接口 /api/stats 需要 Bearer key。
 import { useQuery } from '@tanstack/react-query';
-import { type ReactNode, useEffect, useMemo, useState } from 'react';
+import { type ReactNode, useMemo, useState } from 'react';
 import { fmtInt } from '../../shared/format.ts';
 import { provinceShort } from '../../shared/province.ts';
 import type { NamedCount, StatsDay } from '../../shared/types.ts';
@@ -28,9 +28,6 @@ function initialKey() {
 export function StatsPage() {
   const [key, setKey] = useState(initialKey);
   const [days, setDays] = useState<number>(14);
-  useEffect(() => {
-    document.title = '访问统计 · OceanBase 榜单看板';
-  }, []);
 
   const q = useQuery({
     queryKey: ['stats', key, days],
@@ -43,6 +40,8 @@ export function StatsPage() {
   const badKey = q.error instanceof HttpError && (q.error.status === 404 || q.error.status === 401);
   if (!key || badKey) {
     return (
+      <>
+      <title>访问统计 · OceanBase 榜单看板</title>
       <KeyForm
         error={badKey ? '密钥不对' : null}
         onSubmit={(k) => {
@@ -50,12 +49,14 @@ export function StatsPage() {
           setKey(k);
         }}
       />
+      </>
     );
   }
 
   const s = q.data;
   return (
     <div className="mx-auto max-w-6xl space-y-4 px-4 py-6 sm:px-6">
+      <title>访问统计 · OceanBase 榜单看板</title>
       <header className="flex flex-wrap items-center gap-3">
         <a href={BASEPATH} className="text-sm text-brand-600 hover:underline">
           ← 回到榜单

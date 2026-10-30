@@ -2,7 +2,7 @@
 // 同时在这里比较前后两份快照，累积「实时变化」（只在数据真的换代时比较——旧实现每次轮询都覆盖上一份，
 // 导致涨分标记下一次轮询就消失）。
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { createContext, use, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import type { Snapshot } from '../../shared/types.ts';
 import { diffSnapshots, type Change } from '../../shared/insights.ts';
 import { fetchSnapshot, streamUrl, type SnapshotResult } from './api.ts';
@@ -22,7 +22,7 @@ export interface LiveValue {
 const LiveContext = createContext<LiveValue | null>(null);
 
 export const useLive = () => {
-  const v = useContext(LiveContext);
+  const v = use(LiveContext);
   if (!v) throw new Error('useLive outside LiveProvider');
   return v;
 };
@@ -68,6 +68,7 @@ export function LiveProvider({ children }: { children: ReactNode }) {
     let tries = 0;
     let timer: ReturnType<typeof setTimeout> | undefined;
     let disposed = false;
+    const listeners = new AbortController();
 
     const connect = () => {
       timer = undefined;
@@ -125,11 +126,11 @@ export function LiveProvider({ children }: { children: ReactNode }) {
     };
     // 推迟到下一轮事件循环：StrictMode 开发模式下 effect 会立即卸载重挂，避免「连接未建立就被关闭」
     timer = setTimeout(connect, 0);
-    document.addEventListener('visibilitychange', onVis);
+    document.addEventListener('visibilitychange', onVis, { signal: listeners.signal });
     return () => {
       disposed = true;
       clearTimeout(timer);
-      document.removeEventListener('visibilitychange', onVis);
+      listeners.abort();
       ws?.close();
     };
   }, [qc]);

@@ -24,8 +24,9 @@ export interface UpstreamConfig {
   timeoutMs: number;
 }
 
+/** Bun 有 process.env；Worker（未开 nodejs_compat）没有，改由 configure() 传入 */
 const envOf = (): Record<string, string | undefined> =>
-  (typeof process !== 'undefined' && process.env) || {};
+  (globalThis as { process?: { env?: Record<string, string | undefined> } }).process?.env ?? {};
 const numOr = (v: unknown, d: number) => (v != null && v !== '' && Number.isFinite(Number(v)) ? Number(v) : d);
 
 const config: UpstreamConfig = {

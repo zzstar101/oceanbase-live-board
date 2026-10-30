@@ -11,24 +11,25 @@
     "build": "bun scripts/build.ts",
     "build:pages": "bun scripts/build-pages.ts",
     "backtest": "bun scripts/backtest.ts",
-    "typecheck": "tsc --noEmit",
+    "types": "wrangler types",
+    "typecheck": "wrangler types >/dev/null && tsc --noEmit -p tsconfig.json && tsc --noEmit -p tsconfig.worker.json",
     "test": "bun test",
     "worker:dev": "bun run build && wrangler dev",
     "worker:deploy": "bun run build && wrangler deploy"
   },
+  "packageManager": "bun@1.4.4",
   "engines": {
-    "bun": ">=1.2"
+    "bun": ">=1.4.4"
   },
   "dependencies": {
     "@tanstack/react-query": "^5.105.0",
     "@tanstack/react-router": "^1.170.46",
-    "@tanstack/react-table": "^8",
+    "@tanstack/react-table": "^9.3.1",
     "hono": "^4.13.14",
     "react": "^19.3.1",
     "react-dom": "^19.3.1"
   },
   "devDependencies": {
-    "@cloudflare/workers-types": "^5.20261030.1",
     "@types/bun": "^1.4.4",
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",

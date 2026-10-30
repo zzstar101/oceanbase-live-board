@@ -56,7 +56,7 @@ export function schoolStats(rows: Row[]): SchoolStat[] {
       bestRank: a.best?.rank ?? null,
       top10: a.top10,
       avgScore: a.scored ? tidy(a.sum / a.scored) : null,
-      provinces: [...a.prov].sort((x, y) => y[1] - x[1] || x[0].localeCompare(y[0], 'zh-CN')).map((x) => x[0]),
+      provinces: a.prov.entries().toArray().toSorted((x, y) => y[1] - x[1] || x[0].localeCompare(y[0], 'zh-CN')).map((x) => x[0]),
       leader: a.best?.name ?? null,
     });
   }
@@ -107,7 +107,7 @@ export function scoreHistogram(rows: Row[], binCount = 10): Histogram {
     if (distinct.size > binCount) break;
   }
   if (distinct.size <= Math.max(1, binCount)) {
-    const bins = [...distinct].sort((p, q) => p[0] - q[0]).map(([v, count]) => ({ lo: v, hi: v, count, point: true }));
+    const bins = distinct.entries().toArray().toSorted((p, q) => p[0] - q[0]).map(([v, count]) => ({ lo: v, hi: v, count, point: true }));
     return { bins, maxCount: bins.reduce((m, b) => Math.max(m, b.count), 0), min, max };
   }
 
@@ -147,7 +147,7 @@ export interface Cutoff {
 }
 
 const byRank = (rows: Row[]) =>
-  [...rows].sort((a, b) => a.rank - b.rank || (b.score ?? -Infinity) - (a.score ?? -Infinity));
+  rows.toSorted((a, b) => a.rank - b.rank || (b.score ?? -Infinity) - (a.score ?? -Infinity));
 
 export function cutoffs(rows: Row[], ns: number[] = [10, 50, 100]): Cutoff[] {
   const sorted = byRank(rows);

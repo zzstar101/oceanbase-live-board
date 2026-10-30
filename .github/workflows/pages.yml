@@ -26,11 +26,11 @@ jobs:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - uses: oven-sh/setup-bun@v2
         with:
-          bun-version: latest
+          bun-version-file: package.json   # 读 packageManager 字段，与本地同版本
 
       - run: bun install --frozen-lockfile
 
@@ -40,11 +40,11 @@ jobs:
       - name: Build frontend + fetch snapshot (camp 21, all boards)
         run: bun run build:pages
 
-      - uses: actions/configure-pages@v5
+      - uses: actions/configure-pages@v6
 
-      - uses: actions/upload-pages-artifact@v3
+      - uses: actions/upload-pages-artifact@v5
         with:
           path: dist/pages
 
       - id: deployment
-        uses: actions/deploy-pages@v4
+        uses: actions/deploy-pages@v5

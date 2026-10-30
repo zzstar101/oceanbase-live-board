@@ -6,3 +6,5 @@ dist/
 *.log
 .stats-key
 .dev.vars
+# wrangler types 生成（bun run types）
+worker-configuration.d.ts

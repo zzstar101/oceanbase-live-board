@@ -5,7 +5,6 @@
 import { Database } from 'bun:sqlite';
 import { Hono } from 'hono';
 import { compress } from 'hono/compress';
-import type { ServerWebSocket } from 'bun';
 import index from '../web/index.html';
 import type { OnlineInfo, Snapshot } from '../shared/types.ts';
 import { createApi } from './app.ts';
@@ -52,7 +51,8 @@ if (statsKey) {
 
 // ---------------------------------------------------------------- 推送：有浏览器连着才轮询上游
 const TOPIC = 'board';
-let clients = 0;
+/** 当前订阅推送的浏览器数（Bun 原生 pub/sub 计数，不再手动加减） */
+const clientCount = () => server.subscriberCount(TOPIC);
 let lastPush: number | null = null;
 let latest: Snapshot | null = null;
 let latestGz: Uint8Array | null = null;
@@ -60,10 +60,10 @@ let timer: ReturnType<typeof setTimeout> | null = null;
 
 async function tick() {
   timer = null;
-  if (clients <= 0) return;
+  if (clientCount() <= 0) return;
   try {
     const snap = await getSnapshot({ force: true });
-    latest = { ...snap, push: { intervalMs: PUSH_INTERVAL_MS, clients } };
+    latest = { ...snap, push: { intervalMs: PUSH_INTERVAL_MS, clients: clientCount() } };
     // WebSocket 帧不走 HTTP 压缩，~1MB JSON 每 15 秒推一次太费流量 → 手动 gzip
     latestGz = Bun.gzipSync(JSON.stringify(latest));
     lastPush = Date.now();
@@ -71,7 +71,7 @@ async function tick() {
   } catch (err) {
     console.warn('[push] upstream failed:', errMsg(err));
   }
-  if (clients > 0) timer = setTimeout(tick, PUSH_INTERVAL_MS);
+  if (clientCount() > 0) timer = setTimeout(tick, PUSH_INTERVAL_MS);
 }
 
 // ---------------------------------------------------------------- Hono API
@@ -96,14 +96,14 @@ const api = createApi({
         },
       })
     : undefined,
-  online: async (): Promise<OnlineInfo> => ({ sockets: clients, lastPush, intervalMs: PUSH_INTERVAL_MS }),
+  online: async (): Promise<OnlineInfo> => ({ sockets: clientCount(), lastPush, intervalMs: PUSH_INTERVAL_MS }),
 });
 // Bun.serve 不会自动压缩响应；1.3 MB 的快照 gzip 后约 150 KB（hono/compress 用原生 CompressionStream）
 const app = new Hono().use('/api/*', compress()).route('/', api);
 
 type WsData = { connectedAt: number };
 
-const server = Bun.serve<WsData>({
+const server: Bun.Server<WsData> = Bun.serve({
   port: PORT,
   hostname: HOST,
   // HMR 默认关：Bun 1.4 的 HMR 运行时处理不了 @tanstack/router-core 内部的循环 import
@@ -113,17 +113,17 @@ const server = Bun.serve<WsData>({
     // SPA：所有页面路由都回 index.html（HTML import 由 Bun 原生打包，含 Tailwind 插件，见 bunfig.toml）
     '/': index,
     '/stats': index,
-    '/api/stream': (req: Request, srv: Bun.Server<WsData>) => {
+    '/api/stream': (req, srv) => {
       if (srv.upgrade(req, { data: { connectedAt: Date.now() } })) return undefined;
       return Response.json({ error: 'expected websocket' }, { status: 426 });
     },
-    '/api/*': (req: Request) => app.fetch(req),
+    '/api/*': (req) => app.fetch(req),
   },
   fetch: () => new Response('Not found', { status: 404 }),
   websocket: {
+    data: {} as WsData,
     perMessageDeflate: false,
-    open(ws: ServerWebSocket<WsData>) {
-      clients++;
+    open(ws) {
       ws.subscribe(TOPIC);
       // 没人在线时不抓取，latest 可能已经很旧：只发新鲜的，否则立即抓一次
       const fresh = latestGz && latest && Date.now() - Date.parse(latest.generatedAt) < PUSH_INTERVAL_MS + 5_000;
@@ -132,7 +132,6 @@ const server = Bun.serve<WsData>({
     },
     close(ws) {
       ws.unsubscribe(TOPIC);
-      clients = Math.max(0, clients - 1);
     },
     message() {
       /* 单向推送，忽略客户端消息 */

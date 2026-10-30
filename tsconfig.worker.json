@@ -1,10 +1,11 @@
 {
   "extends": "./tsconfig.json",
   "compilerOptions": {
-    "lib": ["ES2023"],
-    "types": ["@cloudflare/workers-types"]
+    "lib": ["ESNext"],
+    "types": []
   },
   "include": [
+    "worker-configuration.d.ts",
     "src/worker",
     "src/shared",
     "src/server/upstream.ts",

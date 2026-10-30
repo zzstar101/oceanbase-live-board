@@ -12,14 +12,15 @@ import { createApi, isForce } from '../server/app.ts';
 import { configure, errMsg, getConfig, getSnapshot } from '../server/upstream.ts';
 import type { HitEvent, OnlineInfo, StatsSummary } from '../shared/types.ts';
 
-export interface Env {
-  ASSETS: Fetcher;
-  BOARD_HUB: DurableObjectNamespace<BoardHub>;
-  BOARD_STATS: DurableObjectNamespace<BoardStats>;
-  CAMP_ID?: string;
-  CACHE_TTL_MS?: string;
+/**
+ * 绑定类型由 `bun run types`（wrangler types）按 wrangler.jsonc 生成到 worker-configuration.d.ts；
+ * secret 不在配置文件里，这里补上。
+ */
+export type Env = Cloudflare.Env & {
+  /** wrangler secret put STATS_KEY */
   STATS_KEY?: string;
-}
+  CACHE_TTL_MS?: string;
+};
 
 type HonoEnv = { Bindings: Env };
 
@@ -49,11 +50,11 @@ export class BoardHub extends DurableObject<Env> {
   constructor(ctx: DurableObjectState, env: Env) {
     super(ctx, env);
     configure({ campId: env.CAMP_ID, ttlMs: env.CACHE_TTL_MS });
-    ctx.blockConcurrencyWhile(async () => {
-      this.gz = (await ctx.storage.get<ArrayBuffer>('gz')) ?? null;
-      this.at = (await ctx.storage.get<number>('at')) ?? 0;
-      this.lastPush = (await ctx.storage.get<number>('lastPush')) ?? null;
-    });
+    // SQLite 后端 DO 的同步 KV（ctx.storage.kv）：构造时直接读，不再需要 blockConcurrencyWhile
+    const kv = ctx.storage.kv;
+    this.gz = kv.get<ArrayBuffer>('gz') ?? null;
+    this.at = kv.get<number>('at') ?? 0;
+    this.lastPush = kv.get<number>('lastPush') ?? null;
   }
 
   override async fetch(request: Request): Promise<Response> {
@@ -92,7 +93,10 @@ export class BoardHub extends DurableObject<Env> {
       this.gz = await gzip(text);
       this.at = Date.parse(snap.generatedAt);
       this.lastPush = Date.now();
-      await this.ctx.storage.put({ gz: this.gz, at: this.at, lastPush: this.lastPush });
+      const kv = this.ctx.storage.kv;
+      kv.put('gz', this.gz);
+      kv.put('at', this.at);
+      kv.put('lastPush', this.lastPush);
       for (const ws of sockets) {
         try {
           ws.send(this.gz);
@@ -125,9 +129,10 @@ export class BoardStats extends DurableObject<Env> {
 
   constructor(ctx: DurableObjectState, env: Env) {
     super(ctx, env);
+    // 同步 KV 包一层 Promise，与 Bun 端（bun:sqlite）共用 VisitStats
     const kv: KV = {
-      get: <T>(k: string) => ctx.storage.get<T>(k),
-      put: (k, v) => ctx.storage.put(k, v),
+      get: async <T>(k: string) => ctx.storage.kv.get<T>(k),
+      put: async (k, v) => ctx.storage.kv.put(k, v),
     };
     this.visits = new VisitStats(kv);
   }

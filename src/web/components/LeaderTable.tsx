@@ -1,12 +1,13 @@
 import {
   createColumnHelper,
-  flexRender,
-  getCoreRowModel,
-  getSortedRowModel,
-  useReactTable,
-  type SortingState,
+  createSortedRowModel,
+  rowSortingFeature,
+  sortFn_basic,
+  tableFeatures,
+  useTable,
+  type SortFn,
 } from '@tanstack/react-table';
-import { useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import { fmtDur, fmtScore, fmtTime, toMs } from '../../shared/format.ts';
 import { rowKey } from '../../shared/insights.ts';
 import { provinceShort } from '../../shared/province.ts';
@@ -16,7 +17,24 @@ import { toggleStar, useStars } from '../lib/stars.ts';
 import { localRanks } from '../pages/BoardPage.tsx';
 import { cx, Empty, RankBadge, RankDelta, ScoreDelta, StarButton } from './ui.tsx';
 
-const col = createColumnHelper<Row>();
+// 中文按拼音排序（原生 Intl.Collator）；空值永远沉底
+const collator = new Intl.Collator('zh-CN', { numeric: true });
+const sortZh: SortFn<any, Row> = (a, b, id) => {
+  const x = String(a.getValue(id) ?? '');
+  const y = String(b.getValue(id) ?? '');
+  return !x || !y ? Number(!x) - Number(!y) : collator.compare(x, y);
+};
+
+// TanStack Table v9：功能、行模型、排序函数都在这里静态声明（按需打包）
+const features = tableFeatures({
+  rowSortingFeature,
+  sortedRowModel: createSortedRowModel(),
+  sortFns: { basic: sortFn_basic, zh: sortZh },
+  columnMeta: {} as { className?: string },
+});
+
+const col = createColumnHelper<typeof features, Row>();
+const undef = <T,>(v: T | null) => v ?? undefined;
 
 /** 关键词高亮 */
 function Hl({ text, words }: { text: string; words: string[] }) {
@@ -71,13 +89,12 @@ export function LeaderTable({
 }) {
   const { isStarred } = useStars();
   const changes = useRecentChanges(board.id);
-  const [sorting, setSorting] = useState<SortingState>([]);
   const words = useMemo(() => query.toLowerCase().split(/\s+/).filter(Boolean), [query]);
   const local = useMemo(() => (province ? localRanks(rows) : null), [rows, province]);
   const isTrack = board.kind === 'track';
 
   const columns = useMemo(
-    () => [
+    () => col.columns([
       col.display({
         id: 'star',
         header: () => <span className="sr-only">关注</span>,
@@ -88,7 +105,7 @@ export function LeaderTable({
       }),
       col.accessor('rank', {
         header: '名次',
-        sortUndefined: 'last',
+        sortFn: 'basic',
         cell: (c) => {
           const r = c.row.original;
           const ch = changes.get(rowKey(r));
@@ -104,7 +121,7 @@ export function LeaderTable({
       }),
       col.accessor('name', {
         header: isTrack ? '队伍 / 选手' : '队伍',
-        sortingFn: (a, b) => a.original.name.localeCompare(b.original.name, 'zh-CN'),
+        sortFn: 'zh',
         cell: (c) => {
           const r = c.row.original;
           const ch = changes.get(rowKey(r));
@@ -126,7 +143,7 @@ export function LeaderTable({
       }),
       col.accessor('school', {
         header: '学校',
-        sortingFn: (a, b) => a.original.school.localeCompare(b.original.school, 'zh-CN'),
+        sortFn: 'zh',
         cell: (c) => (
           <span className="block truncate">
             <Hl text={c.getValue()} words={words} />
@@ -136,7 +153,7 @@ export function LeaderTable({
       }),
       col.accessor('province', {
         header: '省份',
-        sortingFn: (a, b) => a.original.province.localeCompare(b.original.province, 'zh-CN'),
+        sortFn: 'zh',
         cell: (c) =>
           c.getValue() ? (
             <span title={c.getValue()}>{provinceShort(c.getValue())}</span>
@@ -155,8 +172,10 @@ export function LeaderTable({
         ),
         meta: { className: 'hidden xl:table-cell max-w-[8rem]' },
       }),
-      col.accessor('score', {
+      col.accessor((r) => undef(r.score), {
+        id: 'score',
         header: '成绩',
+        sortFn: 'basic',
         sortUndefined: 'last',
         sortDescFirst: true,
         cell: (c) => {
@@ -171,9 +190,10 @@ export function LeaderTable({
         },
         meta: { className: 'text-right w-[6rem] sm:w-[9rem]' },
       }),
-      col.accessor((r) => toMs(r.updated), {
+      col.accessor((r) => undef(toMs(r.updated)), {
         id: 'updated',
         header: isTrack ? '出分时间' : '更新时间',
+        sortFn: 'basic',
         sortUndefined: 'last',
         sortDescFirst: true,
         cell: (c) => {
@@ -192,17 +212,14 @@ export function LeaderTable({
         },
         meta: { className: 'hidden sm:table-cell text-right w-[10.5rem]' },
       }),
-    ],
+    ]),
     [changes, isStarred, local, words, isTrack],
   );
 
-  const table = useReactTable({
+  const table = useTable({
+    features,
     data: rows,
     columns,
-    state: { sorting },
-    onSortingChange: setSorting,
-    getCoreRowModel: getCoreRowModel(),
-    getSortedRowModel: getSortedRowModel(),
     getRowId: (r, i) => `${rowKey(r)}:${i}`,
   });
 
@@ -216,7 +233,7 @@ export function LeaderTable({
           {table.getHeaderGroups().map((hg) => (
             <tr key={hg.id} className="border-b border-slate-200 text-left text-xs text-slate-500 dark:border-slate-800 dark:text-slate-400">
               {hg.headers.map((h) => {
-                const meta = h.column.columnDef.meta as { className?: string } | undefined;
+                const meta = h.column.columnDef.meta;
                 const sorted = h.column.getIsSorted();
                 return (
                   <th key={h.id} className={cx('px-3 py-2.5 font-medium', meta?.className)} aria-sort={sorted === 'asc' ? 'ascending' : sorted === 'desc' ? 'descending' : undefined}>
@@ -227,11 +244,11 @@ export function LeaderTable({
                         onClick={h.column.getToggleSortingHandler()}
                         title="点击排序"
                       >
-                        {flexRender(h.column.columnDef.header, h.getContext())}
+                        <table.FlexRender header={h} />
                         <span className="text-[10px]">{sorted === 'asc' ? '▲' : sorted === 'desc' ? '▼' : '↕'}</span>
                       </button>
                     ) : (
-                      flexRender(h.column.columnDef.header, h.getContext())
+                      <table.FlexRender header={h} />
                     )}
                   </th>
                 );
@@ -255,11 +272,11 @@ export function LeaderTable({
                   ch && (ch.kind === 'up' || ch.kind === 'new') && 'flash',
                 )}
               >
-                {row.getVisibleCells().map((cell) => {
-                  const meta = cell.column.columnDef.meta as { className?: string } | undefined;
+                {row.getAllCells().map((cell) => {
+                  const meta = cell.column.columnDef.meta;
                   return (
                     <td key={cell.id} className={cx('px-3 py-2 align-middle', meta?.className)}>
-                      {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                      <table.FlexRender cell={cell} />
                     </td>
                   );
                 })}

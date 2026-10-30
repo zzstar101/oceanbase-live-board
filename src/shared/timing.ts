@@ -250,7 +250,7 @@ export function buildTimingModelFromSamples(samples: Sample[], now: number): Tim
   }
 
   // 6. 近期窗口：相对 now（按出分时刻），不是相对最后一次提交
-  const byDone = pts.slice().sort((a, b) => a.done - b.done);
+  const byDone = pts.toSorted((a, b) => a.done - b.done);
   let recentPts = byDone.filter((p) => p.done <= now && now - p.done <= RECENT_WINDOW_MS);
   if (recentPts.length < 5) recentPts = byDone.filter((p) => p.done <= now).slice(-20);
   recentPts.sort((a, b) => a.t - b.t);

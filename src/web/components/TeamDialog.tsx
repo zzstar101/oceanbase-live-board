@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef } from 'react';
+import { useMemo } from 'react';
 import { fmtDur, fmtScore, fmtTime, fmtWhen, toMs } from '../../shared/format.ts';
 import { nextTier } from '../../shared/insights.ts';
 import { predict } from '../../shared/predict.ts';
@@ -10,18 +10,20 @@ import { cx, Pill, RankBadge, StarButton } from './ui.tsx';
 
 /** 队伍详情：原生 <dialog>（Esc 关闭、焦点陷阱、背景遮罩都由浏览器提供） */
 export function TeamDialog({ snap, teamKey, onClose }: { snap: Snapshot; teamKey: string; onClose: () => void }) {
-  const ref = useRef<HTMLDialogElement>(null);
   const now = useNow(60_000);
   const { isStarred } = useStars();
   const team = useMemo(() => findTeam(snap, teamKey), [snap, teamKey]);
   const totalBoard = snap.boards.find((b) => b.kind === 'total');
 
-  useEffect(() => {
-    const d = ref.current;
-    // 不在 cleanup 里 close()：那会触发 close 事件 → onClose，StrictMode 的二次挂载会把弹窗立刻关掉。
-    // 元素卸载时浏览器自然移除顶层弹窗。
-    if (d && !d.open) d.showModal();
-  }, []);
+  // 挂载即以模态打开（React 19 ref 回调）。不在卸载时 close()：那会触发 close → onClose，
+  // StrictMode 的二次挂载会把弹窗立刻关掉；元素被移除时浏览器自然撤掉顶层弹窗。
+  const open = (d: HTMLDialogElement | null) => {
+    if (d && !d.open) {
+      d.showModal();
+      // React 的 autoFocus 在 showModal 之前执行会被覆盖，这里显式把焦点交给关闭按钮
+      d.querySelector<HTMLElement>('[data-autofocus]')?.focus();
+    }
+  };
 
   const tracks = useMemo(
     () =>
@@ -47,9 +49,11 @@ export function TeamDialog({ snap, teamKey, onClose }: { snap: Snapshot; teamKey
 
   return (
     <dialog
-      ref={ref}
+      ref={open}
+      // 原生「点遮罩 / Esc 关闭」；closedby 尚不支持的浏览器用点击遮罩兜底
+      closedby="any"
       onClose={onClose}
-      onClick={(e) => e.target === ref.current && ref.current?.close()}
+      onClick={(e) => e.target === e.currentTarget && e.currentTarget.close()}
       className="m-auto w-[min(860px,calc(100vw-1.5rem))] max-h-[min(92dvh,900px)] rounded-xl border border-slate-200 bg-white p-0 text-slate-800 shadow-2xl backdrop:bg-slate-900/40 backdrop:backdrop-blur-[2px] dark:border-slate-700 dark:bg-[#0f141d] dark:text-slate-100"
       aria-label={info ? `${info.name} 详情` : '队伍详情'}
     >
@@ -57,9 +61,9 @@ export function TeamDialog({ snap, teamKey, onClose }: { snap: Snapshot; teamKey
         <div className="p-8 text-center text-slate-500">
           在当前数据里找不到这支队伍
           <div className="mt-4">
-            <button type="button" className="btn" onClick={() => ref.current?.close()}>
-              关闭
-            </button>
+            <form method="dialog">
+              <button className="btn">关闭</button>
+            </form>
           </div>
         </div>
       ) : (
@@ -74,9 +78,11 @@ export function TeamDialog({ snap, teamKey, onClose }: { snap: Snapshot; teamKey
                 {[info.school, info.province, info.advisor && `导师 ${info.advisor}`].filter(Boolean).join(' · ') || '—'}
               </div>
             </div>
-            <button type="button" autoFocus className="btn px-2" onClick={() => ref.current?.close()} aria-label="关闭">
-              ✕
-            </button>
+            <form method="dialog" className="contents">
+              <button data-autofocus className="btn px-2" aria-label="关闭">
+                ✕
+              </button>
+            </form>
           </header>
 
           <div className="overflow-y-auto px-5 py-4">

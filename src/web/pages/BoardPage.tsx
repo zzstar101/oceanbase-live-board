@@ -1,6 +1,6 @@
 import { useNavigate } from '@tanstack/react-router';
 import { useCallback, useEffect, useMemo } from 'react';
-import { filterByProvince, provinceStats } from '../../shared/province.ts';
+import { filterByProvince, provinceLabel, provinceStats } from '../../shared/province.ts';
 import type { Board, Row } from '../../shared/types.ts';
 import { BoardPicker } from '../components/BoardPicker.tsx';
 import { FeedPanel } from '../components/FeedPanel.tsx';
@@ -75,9 +75,8 @@ export function BoardPage() {
   useEffect(() => {
     if (province) hit({ k: 'province', t: province });
   }, [province]);
-  useEffect(() => {
-    document.title = board ? `${board.title}${province ? ` · ${province}` : ''} - OceanBase 榜单实时看板` : 'OceanBase 榜单实时看板';
-  }, [board?.title, province]);
+  // React 19 原生文档元数据：<title> 写在组件里会被提升到 <head>
+  const pageTitle = board ? `${board.title}${province ? ` · ${provinceLabel(province)}` : ''} - OceanBase 榜单实时看板` : 'OceanBase 榜单实时看板';
 
   const openTeam = useCallback((key: string) => setSearch({ team: key }, false), [setSearch]);
 
@@ -91,6 +90,7 @@ export function BoardPage() {
 
   return (
     <div className="flex min-h-dvh flex-col">
+      <title>{pageTitle}</title>
       <Header />
       <main className="mx-auto w-full max-w-[1440px] flex-1 space-y-4 px-4 py-4 sm:px-6 sm:py-5">
         {!snap ? (

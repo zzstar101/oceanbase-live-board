@@ -1,5 +1,5 @@
 import { useNavigate } from '@tanstack/react-router';
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { bj, fmtDur, fmtPct, fmtTime, fmtWhen, timeAgo, TZ_OFFSET_MS } from '../../shared/format.ts';
 import { predict, type Prediction } from '../../shared/predict.ts';
 import { agg, buildTimingModel, type Metric, type TimingModel } from '../../shared/timing.ts';
@@ -43,19 +43,27 @@ const KIND_LABEL: Record<Prediction['kind'], [string, 'green' | 'brand' | 'amber
 };
 const CONF_LABEL = { high: ['把握较高', 'green'], medium: ['把握一般', 'amber'], low: ['把握较低', 'red'] } as const;
 
+/** 每个赛道每次打开页面只记一次「用了预测」，避免改时间时逐键累加 */
+const predictHits = new Set<string>();
+
 export function TimingPanel({ board }: { board: Board }) {
   const now = useNow(30_000);
   const [metric, setMetric] = useState<Metric>('median');
   const [rangeH, setRangeH] = useState<number>(24);
-  const [submitText, setSubmitText] = useState<string>('');
+  const [submitText, setSubmitTextState] = useState<string>('');
+  // 统计「用了出分预测」放在事件里，而不是 effect（React 推荐：由用户操作引起的副作用写在事件处理里）
+  const setSubmitText = (v: string) => {
+    setSubmitTextState(v);
+    if (v && !predictHits.has(board.id)) {
+      predictHits.add(board.id);
+      hit({ k: 'predict', t: board.id });
+    }
+  };
   const submitMs = (submitText && fromInput(submitText)) || now;
 
   const model = useMemo(() => buildTimingModel(board.rows, { now }), [board.rows, now]);
   const pred = useMemo(() => predict(board.rows, submitMs, Math.max(now, 0)), [board.rows, submitMs, now]);
 
-  useEffect(() => {
-    if (submitText) hit({ k: 'predict', t: board.id });
-  }, [submitText, board.id]);
 
   if (model.insufficient && !model.pts.length) return <Empty>该赛道还没有足够的出分记录</Empty>;
 

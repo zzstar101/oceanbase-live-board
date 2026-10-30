@@ -107,7 +107,7 @@ export interface Prepared {
 }
 
 export function prepareSamples(samples: Sample[], wc?: WorkClock): Prepared {
-  const s = samples.slice().sort((a, b) => a.done - b.done || a.t - b.t);
+  const s = samples.toSorted((a, b) => a.done - b.done || a.t - b.t);
   const clock = wc ?? learnWorkClock(s);
   return {
     s,
@@ -331,7 +331,7 @@ export function predictPrepared(P: Prepared, cut: number, submitMs: number, nowM
 
   // 描述性统计：窗口内、清洗后的真实耗时（修旧 bug 3：不用含暂停/极端异常的原始值）
   const winSamples = P.s.slice(lo, cut);
-  const tm = buildTimingModelFromSamples(winSamples.slice().sort((a, b) => a.t - b.t), nowMs);
+  const tm = buildTimingModelFromSamples(winSamples.toSorted((a, b) => a.t - b.t), nowMs);
   const secs = sortedCopy(tm.pts.map((p) => p.sec));
   const med = secs.length ? quantileSorted(secs, 0.5) : null;
   const p90 = secs.length ? quantileSorted(secs, 0.9) : null;
@@ -551,7 +551,7 @@ export function predictLegacy(P: Prepared, cut: number, submit: number, now: num
   const durs = pts.slice(-60).map((p) => (p.done - p.t) / 1000);
   const medDur = qNearest(durs, 0.5);
   const p90Dur = qNearest(durs, 0.9);
-  const tm = buildTimingModelFromSamples(pts.slice().sort((a, b) => a.t - b.t), now);
+  const tm = buildTimingModelFromSamples(pts.toSorted((a, b) => a.t - b.t), now);
   const judgeKnown = tm.judge.kind === 'measured';
   const judgeSec = judgeKnown || tm.judge.sec >= 15 ? tm.judge.sec : 0;
   if (!win) {
