@@ -76,6 +76,14 @@
 </td>
 </tr>
 <tr>
+<td colspan="2" valign="top">
+
+### 🏁 晋级形势
+剩余名额 = 名额（可改）− 总分满分队数；列出**只差一个赛道就满分**的队伍，按赛道分组并区分「有部分分 / 已判 0 分 / 无记录」，附该赛道「已评到」的提交时刻。想法与第一版实现来自 [@Nickchen-PUSH](https://github.com/Nickchen-PUSH) 的 [PR #1](https://github.com/zzstar101/oceanbase-live-board/pull/1)。
+
+</td>
+</tr>
+<tr>
 <td valign="top">
 
 ### 🧾 队伍详情
@@ -102,8 +110,10 @@ WebSocket gzip 推送（失败退回轮询）· CSV 导出（可按省份）· �
 | ![省份筛选](docs/screenshot-province.png) | ![出分预测](docs/screenshot-timing.png) |
 | **队伍详情** | **分数分布与分数线** |
 | ![队伍详情](docs/screenshot-team.png) | ![分数分布](docs/screenshot-dist.png) |
-| **省份与学校（暗色）** | **手机** |
-| ![省份与学校](docs/screenshot-region-dark.png) | <img src="docs/screenshot-mobile.png" alt="手机" width="60%" /> |
+| **晋级形势** | **省份与学校（暗色）** |
+| ![晋级形势](docs/screenshot-promo.png) | ![省份与学校](docs/screenshot-region-dark.png) |
+| **手机** | |
+| <img src="docs/screenshot-mobile.png" alt="手机" width="60%" /> | |
 
 ## 🚀 快速开始
 
@@ -118,7 +128,7 @@ bun run dev          # → http://127.0.0.1:8791
 | --- | --- |
 | `bun run dev` | 开发服务（`Bun.serve` + HTML import，前端由 Bun 原生打包） |
 | `bun run start` | 生产模式（启动时打包、压缩） |
-| `bun test` | 单元测试：上游解析 / 缓存 / CSV / API / 统计 / 耗时模型 / 预测 / 洞察 |
+| `bun test` | 单元测试：上游解析 / 缓存 / CSV / API / 统计 / 耗时模型 / 预测 / 洞察 / 晋级 |
 | `bun run typecheck` | `tsc`（前端 + 服务端）；Worker 另有 `tsconfig.worker.json` |
 | `bun run backtest` | 出分预测回测（`--md` 输出 Markdown 表格） |
 | `bun run build` / `build:pages` | 打包前端 / 构建 GitHub Pages 静态版 |
@@ -143,7 +153,8 @@ src/
 ├── shared/            # 纯 TS，浏览器 / Bun / Worker 通用
 │   ├── types.ts  format.ts（北京时间格式化）  province.ts（省份筛选与统计）
 │   ├── timing.ts  predict.ts  stats.ts        # 耗时清洗模型、出分预测 + 回测（见 docs/prediction.md）
-│   └── insights.ts                            # 学校统计、分数分布、分数线、快照 diff、实时动态
+│   ├── insights.ts                            # 学校统计、分数分布、分数线、快照 diff、实时动态
+│   └── promotion.ts                           # 晋级形势（PR #1）
 ├── server/
 │   ├── upstream.ts    # 上游抓取、归一化、排名、按 groupId 补全、TTL 缓存 + stale-while-error
 │   ├── app.ts         # Hono API（两端共用）

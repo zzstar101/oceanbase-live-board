@@ -9,6 +9,7 @@ import { Footer } from '../components/Footer.tsx';
 import { Header } from '../components/Header.tsx';
 import { Kpis } from '../components/Kpis.tsx';
 import { LeaderTable } from '../components/LeaderTable.tsx';
+import { PromotionPanel } from '../components/PromotionPanel.tsx';
 import { ProvinceMap } from '../components/ProvinceMap.tsx';
 import { RegionPanel } from '../components/RegionPanel.tsx';
 import { ScoreDist } from '../components/ScoreDist.tsx';
@@ -84,6 +85,7 @@ export function BoardPage() {
     { id: 'rank', label: '排行榜', show: true },
     { id: 'dist', label: '分数分布', show: true },
     { id: 'region', label: '省份与学校', show: true },
+    { id: 'promo', label: '晋级形势', show: true },
     { id: 'timing', label: '出分耗时与预测', show: board?.kind === 'track' },
   ];
 
@@ -166,6 +168,7 @@ export function BoardPage() {
                         onSchool={(s) => setSearch({ q: s, tab: undefined })}
                       />
                     )}
+                    {tab === 'promo' && <PromotionPanel snap={snap} province={province} onOpen={openTeam} />}
                     {tab === 'timing' && board.kind === 'track' && <TimingPanel board={board} />}
                   </div>
                 </section>

@@ -4,7 +4,7 @@ import { BASEPATH } from './lib/config.ts';
 import { BoardPage } from './pages/BoardPage.tsx';
 import { StatsPage } from './pages/StatsPage.tsx';
 
-export const TABS = ['rank', 'dist', 'region', 'timing'] as const;
+export const TABS = ['rank', 'dist', 'region', 'promo', 'timing'] as const;
 export type Tab = (typeof TABS)[number];
 
 export interface BoardSearch {
