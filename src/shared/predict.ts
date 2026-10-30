@@ -31,21 +31,37 @@ export interface WorkClock {
   always: boolean;
   /** 识别出的休息钟点（北京时间小时），升序 */
   offHours: number[];
+  /** 休息钟点在多少个「评测机在干活」的日子里重复出现过 */
+  evidenceDays: number;
 }
 
-const ALWAYS: WorkClock = { on: Array(24).fill(true), onHours: 24, always: true, offHours: [] };
+const ALWAYS: WorkClock = { on: Array(24).fill(true), onHours: 24, always: true, offHours: [], evidenceDays: 0 };
+
+/** 一天里至少出了这么多次分，才算评测机「那天在干活」，可以拿来作为固定休息时段的证据 */
+const ACTIVE_DAY_MIN_DONE = 3;
+/** 固定休息时段至少要在这么多个「在干活的日子」里重复出现 */
+const OFF_MIN_DAYS = 3;
 
 /**
- * 从样本学习休息钟点：某个北京时间小时 h，在 ≥2 个不同日期里都有作业「整小时在等」，
- * 但所有日期里 h 点都从没出过分 ⇒ h 点评测机不工作。
+ * 从样本学习「固定休息钟点」：某个北京时间小时 h 同时满足
+ *   1. 所有日期里 h 点都从没出过分；
+ *   2. 至少 OFF_MIN_DAYS 个不同日期里，h 点有作业「整小时在等」，且那天评测机在别的钟点出过 ≥ ACTIVE_DAY_MIN_DONE 次分
+ * ⇒ 这是每天都会出现的作息，而不是一次性停机。
+ *
+ * 第 2 条里「那天在干活」和「≥3 天」都是为了排除临时停机 / 评测机维护：只靠「≥2 个日期在等」时，
+ * 一次跨夜的停机（例如 AMD 10-28、10-29 晚上评测机制更新导致停评）就会被误判成「每天 21–23 点不出分」，
+ * 之后每个预测都被错误地推迟。临时停机交给耗时模型的暂停识别与「疑似停摆」判断处理。
  * 夜里没人提交的空闲时段没有「在等的作业」，不会被误判。休息钟点超过 18 个视为数据异常，退回全天。
  */
 export function learnWorkClock(samples: Sample[]): WorkClock {
   if (samples.length < 20) return ALWAYS;
   const exposed: Set<number>[] = Array.from({ length: 24 }, () => new Set<number>());
   const doneHour = new Array<number>(24).fill(0);
+  const donePerDay = new Map<number, number>();
   for (const s of samples) {
     doneHour[bj(s.done).h]++;
+    const doneDay = Math.floor((s.done + TZ_OFFSET_MS) / DAY);
+    donePerDay.set(doneDay, (donePerDay.get(doneDay) ?? 0) + 1);
     // 只看完整落在 (t, done) 内的整点小时；最多 96 个
     const first = Math.ceil((s.t + TZ_OFFSET_MS) / H) * H - TZ_OFFSET_MS;
     for (let k = 0, x = first; x + H <= s.done && k < 96; k++, x += H) {
@@ -53,15 +69,21 @@ export function learnWorkClock(samples: Sample[]): WorkClock {
       exposed[Math.floor((local % DAY) / H)].add(Math.floor(local / DAY));
     }
   }
+  const activeDay = (d: number) => (donePerDay.get(d) ?? 0) >= ACTIVE_DAY_MIN_DONE;
   const on: boolean[] = [];
   const offHours: number[] = [];
+  let evidenceDays = 0;
   for (let h = 0; h < 24; h++) {
-    const off = doneHour[h] === 0 && exposed[h].size >= 2;
+    const days = doneHour[h] === 0 ? exposed[h].values().filter(activeDay).toArray().length : 0;
+    const off = days >= OFF_MIN_DAYS;
     on.push(!off);
-    if (off) offHours.push(h);
+    if (off) {
+      offHours.push(h);
+      evidenceDays = Math.max(evidenceDays, days);
+    }
   }
   if (!offHours.length || offHours.length > 18) return ALWAYS;
-  return { on, onHours: 24 - offHours.length, always: false, offHours };
+  return { on, onHours: 24 - offHours.length, always: false, offHours, evidenceDays };
 }
 
 /** 毫秒时间戳 → 工作时钟（只累计工作小时的毫秒数）。休息时段内的时刻映射到下一个工作小时的起点。 */
@@ -276,6 +298,8 @@ export interface Prediction {
   windowH: number | null;
   /** 识别出的评测休息钟点（北京时间小时），无则空数组 */
   offHours: number[];
+  /** 休息钟点在多少个「评测机在干活」的日子里重复出现过（证据强度） */
+  offDays: number;
   /** 此刻距最近一次出分（秒） */
   idleSec: number | null;
   /** 该赛道近 24h 滚动回测（与 backtestTrack 相同口径），用于置信度；样本不足为 null */
@@ -317,7 +341,7 @@ export function predictPrepared(P: Prepared, cut: number, submitMs: number, nowM
     kind: 'none', etaMs: null, lowMs: null, highMs: null, confidence: 'low',
     frontMs: null, backlogSec: null, rate: null, rateLabel: '—', judgeSec: null,
     medTurnaroundSec: null, p90TurnaroundSec: null, lastDoneMs: cut ? P.done[cut - 1] : null,
-    samples: cut, windowH: null, offHours: P.wc.offHours, accuracy: null, idleSec: cut ? Math.round((nowMs - P.done[cut - 1]) / 1000) : null,
+    samples: cut, windowH: null, offHours: P.wc.offHours, offDays: P.wc.evidenceDays, accuracy: null, idleSec: cut ? Math.round((nowMs - P.done[cut - 1]) / 1000) : null,
     headline: '样本不足，暂无法预测出分时间', notes: [],
   };
   if (cut < 3) {
@@ -413,7 +437,7 @@ function writeText(p: Prediction, submit: number, now: number, Lhat: number, win
       break;
     case 'batch':
       p.headline = `预计 ${when(p.etaMs)} 出分`;
-      notes.push(`该赛道评测机在北京时间 ${hourRanges(p.offHours)} 不出分（从历史里「有作业在等却从不出分」的钟点识别），这段时间不计入排队。`);
+      notes.push(`该赛道过去 ${p.offDays} 天里，北京时间 ${hourRanges(p.offHours)} 都是有作业在等却一次分也没出，按固定休息时段处理（不计入排队）。若只是临时停机，预测会偏晚。`);
       notes.push(`扣除休息时段后，近期作业约 ${dur(Lhat)} 出分。`);
       break;
     case 'overdue':

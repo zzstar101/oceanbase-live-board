@@ -114,8 +114,33 @@ describe('predict', () => {
     checkShape(p);
   });
 
+  test('两晚的临时停机（AMD 10-28/10-29 评测机制更新）不能被当成每天固定的休息钟点', () => {
+    // 北京 10-28 20:00 开赛，每 20 分钟一次提交，正常 25 分钟出分；
+    // 停机：10-28 20:00–23:00（开赛当天几乎没出分）、10-29 19:00–23:00，停机期间的作业在恢复后依次出分
+    const rows: Row[] = [];
+    const start = Date.parse('2026-10-28T12:00:00Z'); // 北京 10-28 20:00
+    const outages = [
+      [start, start + 3 * H],
+      [start + 23 * H, start + 27 * H],
+    ];
+    const now = start + 45 * H; // 北京 10-30 17:00
+    let i = 0;
+    let backlog = 0;
+    for (let t = start; t < now - H; t += 20 * MIN) {
+      const o = outages.find(([a, b]) => t >= a! && t < b!);
+      rows.push(row(i++, t, o ? o[1]! + (backlog++ % 12) * 2 * MIN : t + 25 * MIN));
+    }
+    const wc = learnWorkClock(samplesOf(rows.filter((r) => Date.parse(r.updated!) <= now)));
+    expect(wc.offHours).toEqual([]);
+    expect(wc.always).toBe(true);
+    const p = predict(rows.filter((r) => Date.parse(r.updated!) <= now), now, now);
+    expect(p.offHours).toEqual([]);
+    expect(p.notes.join('')).not.toContain('休息时段');
+    expect(p.etaMs! - now).toBeLessThan(2 * H);
+  });
+
   test('工作时钟换算可逆', () => {
-    const wc = { on: Array.from({ length: 24 }, (_, h) => h >= 9 && h < 17), onHours: 8, always: false, offHours: [] };
+    const wc = { on: Array.from({ length: 24 }, (_, h) => h >= 9 && h < 17), onHours: 8, always: false, offHours: [], evidenceDays: 3 };
     const t = Date.parse('2026-10-28T03:15:00Z'); // 北京 11:15
     expect(fromWork(wc, toWork(wc, t))).toBe(t);
     expect(toWork(wc, t + 2 * H) - toWork(wc, t)).toBe(2 * H);
