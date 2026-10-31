@@ -10,16 +10,27 @@
 [![实时直连](https://img.shields.io/badge/实时直连-board.nerv--base.com-f38020?style=flat-square&logo=cloudflare&logoColor=white)](https://board.nerv-base.com/)
 [![Pages](https://img.shields.io/github/actions/workflow/status/zzstar101/oceanbase-live-board/pages.yml?style=flat-square&label=快照构建)](https://github.com/zzstar101/oceanbase-live-board/actions/workflows/pages.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-22c55e?style=flat-square)](LICENSE)
-<br />
-[![seekdb](https://img.shields.io/badge/seekdb-AI_原生搜索数据库-0ea5e9?style=flat-square)](https://www.seekdb.ai/)
-[![PowerContext](https://img.shields.io/badge/PowerContext-Agent_记忆-a855f7?style=flat-square)](https://powercontext.oceanbase.io/zh/)
-[![OceanBase](https://img.shields.io/badge/OceanBase-分布式_·_AI_数据库-1f6fff?style=flat-square)](https://www.oceanbase.com/)
-
-<br />
-
-<img src="docs/screenshot-total.png" alt="总榜" width="100%" />
 
 </div>
+
+## ❤️ 友情赞助
+
+<table>
+<tr>
+<td width="180" align="center"><a href="https://www.seekdb.ai/"><picture><source media="(prefers-color-scheme: dark)" srcset="src/web/assets/sponsors/seekdb-dark.svg" /><img src="src/web/assets/sponsors/seekdb.svg" alt="seekdb" width="150" /></picture></a></td>
+<td><b><a href="https://www.seekdb.ai/">seekdb</a></b> · AI 原生搜索数据库。向量、全文、结构化数据混合检索，一个引擎搞定，嵌入式即开即用，很适合给 Agent 当存储。<a href="https://www.seekdb.ai/">官网</a> · <a href="https://github.com/oceanbase/seekdb">GitHub</a></td>
+</tr>
+<tr>
+<td width="180" align="center"><a href="https://powercontext.oceanbase.io/zh/"><picture><source media="(prefers-color-scheme: dark)" srcset="src/web/assets/sponsors/powercontext-dark.png" /><img src="src/web/assets/sponsors/powercontext.png" alt="PowerContext" width="150" /></picture></a></td>
+<td><b><a href="https://powercontext.oceanbase.io/zh/">PowerContext</a></b> · Agent 记忆。给 Claude Code / Codex 的长期记忆与上下文交接：换个新会话，决策、约束和进度不用再交代一遍。<a href="https://powercontext.oceanbase.io/zh/">官网</a> · <a href="https://github.com/oceanbase/powercontext">GitHub</a></td>
+</tr>
+<tr>
+<td width="180" align="center"><a href="https://www.oceanbase.com/"><picture><source media="(prefers-color-scheme: dark)" srcset="src/web/assets/sponsors/oceanbase-dark.svg" /><img src="src/web/assets/sponsors/oceanbase.svg" alt="OceanBase" width="150" /></picture></a></td>
+<td><b><a href="https://www.oceanbase.com/">OceanBase</a></b> · 分布式 · AI 数据库。完全自研，高度兼容 MySQL / Oracle，一套系统承载交易、实时分析与 AI 负载。<a href="https://www.oceanbase.com/">官网</a> · <a href="https://open.oceanbase.com/">社区</a></td>
+</tr>
+</table>
+
+<img src="docs/screenshot-total.png" alt="总榜" width="100%" />
 
 <br />
 
@@ -59,42 +70,6 @@
 | ![队伍详情](docs/screenshot-team.png) | ![分数分布](docs/screenshot-dist.png) |
 | **晋级形势** | **省份与学校（暗色）** |
 | ![晋级形势](docs/screenshot-promo.png) | ![省份与学校](docs/screenshot-region-dark.png) |
-
-## 比赛用到的产品
-
-这次比赛的赛道就是围绕下面这几个产品出的题，顺手推荐一下：
-
-<table>
-<tr>
-<td width="33%" valign="top">
-
-**[seekdb](https://www.seekdb.ai/)** · AI 原生搜索数据库
-
-向量、全文、结构化数据混合检索，一个引擎搞定，嵌入式即开即用，很适合给 Agent 当存储。
-
-[官网](https://www.seekdb.ai/) · [GitHub](https://github.com/oceanbase/seekdb)
-
-</td>
-<td width="33%" valign="top">
-
-**[PowerContext](https://powercontext.oceanbase.io/zh/)** · Agent 记忆
-
-给 Claude Code / Codex 的长期记忆与上下文交接：换个新会话，决策、约束和进度不用再交代一遍。
-
-[官网](https://powercontext.oceanbase.io/zh/) · [GitHub](https://github.com/oceanbase/powercontext)
-
-</td>
-<td width="33%" valign="top">
-
-**[OceanBase](https://www.oceanbase.com/)** · 分布式 · AI 数据库
-
-完全自研的分布式数据库，高度兼容 MySQL / Oracle，一套系统承载交易、实时分析与 AI 负载。
-
-[官网](https://www.oceanbase.com/) · [社区](https://open.oceanbase.com/)
-
-</td>
-</tr>
-</table>
 
 ## 自己跑一个
 

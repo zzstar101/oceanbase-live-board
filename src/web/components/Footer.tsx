@@ -1,7 +1,7 @@
 import { fmtTime } from '../../shared/format.ts';
 import { MODE } from '../lib/config.ts';
 import { useLive } from '../lib/live.tsx';
-import { RecommendLinks } from './Recommend.tsx';
+import { SponsorLinks } from './Sponsors.tsx';
 
 export function Footer() {
   const { data } = useLive();
@@ -25,7 +25,7 @@ export function Footer() {
           GitHub 源码
         </a>
         <span className="mx-2">|</span>
-        相关产品：<RecommendLinks />
+        友情赞助：<SponsorLinks />
       </p>
     </footer>
   );
