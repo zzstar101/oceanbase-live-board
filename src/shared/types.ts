@@ -96,7 +96,7 @@ export interface HealthInfo {
 export type HitKind = 'pv' | 'board' | 'csv' | 'out' | 'predict' | 'province' | 'ad';
 export interface HitEvent {
   k: HitKind;
-  /** 榜单 id / 省份名 / 赞助位 id 等 */
+  /** 榜单 id / 省份名 / 推广位 id 等 */
   t?: string;
   /** document.referrer（仅 pv） */
   r?: string;
@@ -134,7 +134,7 @@ export interface StatsSummary {
     out: number;
     pred: number;
     prov: number;
-    /** 赞助位点击 */
+    /** 推广位点击 */
     ad: number;
   };
   boards: NamedCount[];
@@ -143,7 +143,7 @@ export interface StatsSummary {
   refs: NamedCount[];
   geo: NamedCount[];
   dev: NamedCount[];
-  /** 赞助位点击，按赞助方 */
+  /** 推广位点击，按产品 */
   ads: NamedCount[];
   online: number;
 }

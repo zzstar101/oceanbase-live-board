@@ -99,7 +99,7 @@ export function StatsPage() {
             <Stat label="单日 UV 峰值" value={fmtInt(s.totals.uvPeak)} sub={`日 UV 合计 ${fmtInt(s.totals.uvDaySum)}`} />
             <Stat label="CSV 导出" value={fmtInt(s.totals.csv)} sub={`今日 ${fmtInt(s.today.csv)}`} />
             <Stat label="出分预测" value={fmtInt(s.totals.pred)} sub={`今日 ${fmtInt(s.today.pred)} · 外链 ${fmtInt(s.totals.out)}`} />
-            <Stat label="赞助位点击" value={fmtInt(s.totals.ad ?? 0)} sub={`今日 ${fmtInt(s.today.ad ?? 0)}`} />
+            <Stat label="推广位点击" value={fmtInt(s.totals.ad ?? 0)} sub={`今日 ${fmtInt(s.today.ad ?? 0)}`} />
           </div>
 
           <Card title="每日访问" extra={<Legend />}>
@@ -112,7 +112,7 @@ export function StatsPage() {
             <CountTable title="来源" rows={s.refs} />
             <CountTable title="地区（国家/地区）" rows={s.geo} />
             <CountTable title="设备" rows={s.dev} />
-            <CountTable title="赞助位点击" rows={s.ads ?? []} />
+            <CountTable title="推广位点击" rows={s.ads ?? []} />
           </div>
           <p className="text-xs text-slate-400">
             UV 按「日期 + IP + UA」加盐哈希去重，跨天无法合并，所以区间只给日 UV 之和与峰值。本机访问不计入。

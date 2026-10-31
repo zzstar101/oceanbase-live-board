@@ -15,7 +15,7 @@ export interface Sponsor {
   links: { label: string; href: string }[];
 }
 
-/** 友情赞助（README 顶部同一份内容，改这里记得同步 README） */
+/** 「由 OceanBase 强力驱动」推广位（README 顶部同一份内容，改这里记得同步 README） */
 export const SPONSORS: Sponsor[] = [
   {
     id: 'seekdb',
@@ -79,10 +79,10 @@ export function Sponsors() {
     <section className="card p-4" aria-labelledby="sponsors-title">
       <header className="mb-3 flex items-center justify-between gap-2">
         <h2 id="sponsors-title" className="card-title">
-          <span aria-hidden className="text-rose-500">
-            ♥
+          <span aria-hidden className="text-amber-500">
+            ⚡
           </span>
-          友情赞助
+          由 OceanBase 强力驱动
         </h2>
       </header>
       <ul className="divide-y divide-slate-100 dark:divide-slate-800">

@@ -13,7 +13,7 @@
 
 </div>
 
-## ❤️ 友情赞助
+## ⚡ 由 OceanBase 强力驱动
 
 <table>
 <tr>

@@ -25,7 +25,7 @@ export function Footer() {
           GitHub 源码
         </a>
         <span className="mx-2">|</span>
-        友情赞助：<SponsorLinks />
+        由 OceanBase 强力驱动：<SponsorLinks />
       </p>
     </footer>
   );
