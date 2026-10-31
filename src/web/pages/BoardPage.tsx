@@ -12,6 +12,7 @@ import { LeaderTable } from '../components/LeaderTable.tsx';
 import { PromotionPanel } from '../components/PromotionPanel.tsx';
 import { ProvinceMap } from '../components/ProvinceMap.tsx';
 import { Sponsors } from '../components/Sponsors.tsx';
+import { StarPrompt } from '../components/StarPrompt.tsx';
 import { RegionPanel } from '../components/RegionPanel.tsx';
 import { ScoreDist } from '../components/ScoreDist.tsx';
 import { StarBar } from '../components/StarBar.tsx';
@@ -202,6 +203,7 @@ export function BoardPage() {
         )}
       </main>
       <Footer />
+      <StarPrompt />
       {snap && search.team && <TeamDialog snap={snap} teamKey={search.team} onClose={() => setSearch({ team: undefined })} />}
     </div>
   );
