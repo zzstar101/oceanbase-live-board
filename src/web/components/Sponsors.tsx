@@ -18,14 +18,15 @@ export interface Sponsor {
 /** 「由 OceanBase 强力驱动」推广位（README 顶部同一份内容，改这里记得同步 README） */
 export const SPONSORS: Sponsor[] = [
   {
-    id: 'seekdb',
-    name: 'seekdb',
-    tag: 'AI 原生搜索数据库',
-    desc: '向量、全文、结构化数据混合检索，一个引擎搞定，嵌入式即开即用，很适合给 Agent 当存储。',
-    logo: { light: seekdb, dark: seekdbDark, ratio: 334.84 / 76.22 },
+    id: 'oceanbase',
+    name: 'OceanBase',
+    tag: '分布式 · AI 数据库',
+    desc: '完全自研的分布式数据库，高度兼容 MySQL / Oracle，一套系统承载交易、实时分析与 AI 负载。',
+    logo: { light: oceanbase, dark: oceanbaseDark, ratio: 500 / 81.76 },
     links: [
-      { label: '官网', href: 'https://www.seekdb.ai/' },
-      { label: 'GitHub', href: 'https://github.com/oceanbase/seekdb' },
+      { label: '官网', href: 'https://www.oceanbase.com/' },
+      { label: 'GitHub', href: 'https://github.com/oceanbase/oceanbase' },
+      { label: '社区', href: 'https://open.oceanbase.com/' },
     ],
   },
   {
@@ -40,14 +41,14 @@ export const SPONSORS: Sponsor[] = [
     ],
   },
   {
-    id: 'oceanbase',
-    name: 'OceanBase',
-    tag: '分布式 · AI 数据库',
-    desc: '完全自研的分布式数据库，高度兼容 MySQL / Oracle，一套系统承载交易、实时分析与 AI 负载。',
-    logo: { light: oceanbase, dark: oceanbaseDark, ratio: 500 / 81.76 },
+    id: 'seekdb',
+    name: 'seekdb',
+    tag: 'AI 原生搜索数据库',
+    desc: '向量、全文、结构化数据混合检索，一个引擎搞定，嵌入式即开即用，很适合给 Agent 当存储。',
+    logo: { light: seekdb, dark: seekdbDark, ratio: 334.84 / 76.22 },
     links: [
-      { label: '官网', href: 'https://www.oceanbase.com/' },
-      { label: '社区', href: 'https://open.oceanbase.com/' },
+      { label: '官网', href: 'https://www.seekdb.ai/' },
+      { label: 'GitHub', href: 'https://github.com/oceanbase/seekdb' },
     ],
   },
 ];

@@ -188,12 +188,12 @@ export function BoardPage() {
                 </section>
 
                 <aside className="space-y-4">
+                  <Sponsors />
                   <ProvinceMap
                     stats={provinces}
                     province={province}
                     onPick={(p) => setSearch({ province: p === province ? undefined : p || undefined })}
                   />
-                  <Sponsors />
                   <FeedPanel snap={snap} board={board} province={province} onOpen={openTeam} />
                 </aside>
               </div>

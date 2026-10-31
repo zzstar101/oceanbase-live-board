@@ -17,16 +17,16 @@
 
 <table>
 <tr>
-<td width="180" align="center"><a href="https://www.seekdb.ai/"><picture><source media="(prefers-color-scheme: dark)" srcset="src/web/assets/sponsors/seekdb-dark.svg" /><img src="src/web/assets/sponsors/seekdb.svg" alt="seekdb" width="150" /></picture></a></td>
-<td><b><a href="https://www.seekdb.ai/">seekdb</a></b> · AI 原生搜索数据库。向量、全文、结构化数据混合检索，一个引擎搞定，嵌入式即开即用，很适合给 Agent 当存储。<a href="https://www.seekdb.ai/">官网</a> · <a href="https://github.com/oceanbase/seekdb">GitHub</a></td>
+<td width="180" align="center"><a href="https://www.oceanbase.com/"><picture><source media="(prefers-color-scheme: dark)" srcset="src/web/assets/sponsors/oceanbase-dark.svg" /><img src="src/web/assets/sponsors/oceanbase.svg" alt="OceanBase" width="150" /></picture></a></td>
+<td><b><a href="https://www.oceanbase.com/">OceanBase</a></b> · 分布式 · AI 数据库。完全自研，高度兼容 MySQL / Oracle，一套系统承载交易、实时分析与 AI 负载。<a href="https://www.oceanbase.com/">官网</a> · <a href="https://github.com/oceanbase/oceanbase">GitHub</a> · <a href="https://open.oceanbase.com/">社区</a></td>
 </tr>
 <tr>
 <td width="180" align="center"><a href="https://powercontext.oceanbase.io/zh/"><picture><source media="(prefers-color-scheme: dark)" srcset="src/web/assets/sponsors/powercontext-dark.png" /><img src="src/web/assets/sponsors/powercontext.png" alt="PowerContext" width="150" /></picture></a></td>
 <td><b><a href="https://powercontext.oceanbase.io/zh/">PowerContext</a></b> · Agent 记忆。给 Claude Code / Codex 的长期记忆与上下文交接：换个新会话，决策、约束和进度不用再交代一遍。<a href="https://powercontext.oceanbase.io/zh/">官网</a> · <a href="https://github.com/oceanbase/powercontext">GitHub</a></td>
 </tr>
 <tr>
-<td width="180" align="center"><a href="https://www.oceanbase.com/"><picture><source media="(prefers-color-scheme: dark)" srcset="src/web/assets/sponsors/oceanbase-dark.svg" /><img src="src/web/assets/sponsors/oceanbase.svg" alt="OceanBase" width="150" /></picture></a></td>
-<td><b><a href="https://www.oceanbase.com/">OceanBase</a></b> · 分布式 · AI 数据库。完全自研，高度兼容 MySQL / Oracle，一套系统承载交易、实时分析与 AI 负载。<a href="https://www.oceanbase.com/">官网</a> · <a href="https://open.oceanbase.com/">社区</a></td>
+<td width="180" align="center"><a href="https://www.seekdb.ai/"><picture><source media="(prefers-color-scheme: dark)" srcset="src/web/assets/sponsors/seekdb-dark.svg" /><img src="src/web/assets/sponsors/seekdb.svg" alt="seekdb" width="150" /></picture></a></td>
+<td><b><a href="https://www.seekdb.ai/">seekdb</a></b> · AI 原生搜索数据库。向量、全文、结构化数据混合检索，一个引擎搞定，嵌入式即开即用，很适合给 Agent 当存储。<a href="https://www.seekdb.ai/">官网</a> · <a href="https://github.com/oceanbase/seekdb">GitHub</a></td>
 </tr>
 </table>
 
