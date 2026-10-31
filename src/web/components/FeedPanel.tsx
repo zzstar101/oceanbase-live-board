@@ -97,7 +97,7 @@ export function FeedPanel({
       {items.length === 0 ? (
         <p className="py-6 text-center text-sm text-slate-400">这段时间没有新的出分{province ? '（当前省份）' : ''}</p>
       ) : (
-        <ol className="max-h-[540px] space-y-0.5 overflow-y-auto pr-1">
+        <ol className="max-h-[540px] lg:max-h-[680px] space-y-0.5 overflow-y-auto pr-1">
           {items.map((x) => (
             <li key={`${x.boardId}|${x.key}|${x.at}`}>
               <button

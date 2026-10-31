@@ -226,10 +226,10 @@ export function LeaderTable({
   if (!rows.length) return <Empty>没有符合条件的队伍</Empty>;
 
   return (
-    // 宽屏：overflow-x-clip 不会形成滚动容器，表头可以吸顶到页面 header 下方；窄屏横向滚动、表头不吸顶
+    // 宽屏：表格在卡片内纵向滚动（滚动容器是 BoardPage 的视图主体），overflow-x-clip 不形成滚动容器，表头吸顶到卡片顶部；窄屏横向滚动、表头不吸顶
     <div className="overflow-x-auto lg:overflow-x-clip">
       <table className="w-full table-fixed text-sm">
-        <thead className="z-10 bg-white/95 backdrop-blur lg:sticky lg:top-14 dark:bg-[#0f141d]/95">
+        <thead className="z-10 bg-white/95 backdrop-blur lg:sticky lg:top-0 dark:bg-[#0f141d]/95">
           {table.getHeaderGroups().map((hg) => (
             <tr key={hg.id} className="border-b border-slate-200 text-left text-xs text-slate-500 dark:border-slate-800 dark:text-slate-400">
               {hg.headers.map((h) => {

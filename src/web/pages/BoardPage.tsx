@@ -1,5 +1,5 @@
 import { useNavigate } from '@tanstack/react-router';
-import { useCallback, useEffect, useMemo } from 'react';
+import { useCallback, useEffect, useMemo, useRef } from 'react';
 import { filterByProvince, provinceLabel, provinceStats } from '../../shared/province.ts';
 import type { Board, Row } from '../../shared/types.ts';
 import { BoardPicker } from '../components/BoardPicker.tsx';
@@ -65,6 +65,12 @@ export function BoardPage() {
 
   const province = search.province || '';
   const tab: Tab = search.tab === 'timing' && board?.kind !== 'track' ? 'rank' : search.tab || 'rank';
+
+  // 卡片内滚动：切换榜单 / 省份 / 视图 / 搜索时回到顶部
+  const bodyRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    bodyRef.current?.scrollTo({ top: 0 });
+  }, [board?.id, province, tab, search.q]);
 
   const provinceRows = useMemo(() => (board ? filterByProvince(board.rows, province) : []), [board, province]);
   const shownRows = useMemo(() => searchRows(provinceRows, search.q), [provinceRows, search.q]);
@@ -132,10 +138,11 @@ export function BoardPage() {
               />
               <Kpis board={board} rows={provinceRows} province={province} snap={snap} />
 
-              <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,1fr)_340px]">
-                <section className="card min-w-0">
+              {/* 宽屏：行高由右侧栏决定，左侧卡片拉伸到同样高度，内容在卡片内滚动（[contain:size] 让内容不参与撑高） */}
+              <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,1fr)_340px] lg:items-stretch">
+                <section className="card min-w-0 overflow-hidden lg:flex lg:min-h-[calc(100dvh-5rem)] lg:flex-col">
                   <nav
-                    className="flex gap-5 overflow-x-auto border-b border-slate-200 px-4 pt-2 dark:border-slate-800"
+                    className="flex shrink-0 gap-5 overflow-x-auto border-b border-slate-200 px-4 pt-2 dark:border-slate-800"
                     role="tablist"
                     aria-label="视图"
                   >
@@ -154,7 +161,13 @@ export function BoardPage() {
                         </button>
                       ))}
                   </nav>
-                  <div className={cx(tab === 'rank' ? '' : 'p-4')}>
+                  <div
+                    ref={bodyRef}
+                    className={cx(
+                      'lg:min-h-0 lg:flex-1 lg:overflow-y-auto lg:[contain:size]',
+                      tab === 'rank' ? '' : 'p-4',
+                    )}
+                  >
                     {tab === 'rank' && (
                       <LeaderTable board={board} rows={shownRows} province={province} query={search.q || ''} onOpen={openTeam} />
                     )}
