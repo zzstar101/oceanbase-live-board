@@ -23,14 +23,16 @@ interface DayBucket {
   out: number;
   pred: number;
   prov: number;
+  ad: number;
   boards: Record<string, number>;
   provinces: Record<string, number>;
   refs: Record<string, number>;
   geo: Record<string, number>;
   dev: Record<string, number>;
+  ads: Record<string, number>;
 }
 
-const HIT_KINDS: readonly HitKind[] = ['pv', 'board', 'csv', 'out', 'predict', 'province'];
+const HIT_KINDS: readonly HitKind[] = ['pv', 'board', 'csv', 'out', 'predict', 'province', 'ad'];
 const MAX_UV_PER_DAY = 50_000;
 const MAX_KEYS = 200; // 每个分布字典最多保留的键数（防止恶意打点把存储撑爆）
 
@@ -75,11 +77,13 @@ const emptyBucket = (): DayBucket => ({
   out: 0,
   pred: 0,
   prov: 0,
+  ad: 0,
   boards: {},
   provinces: {},
   refs: {},
   geo: {},
   dev: {},
+  ads: {},
 });
 
 function bump(obj: Record<string, number>, key: string, n = 1) {
@@ -165,6 +169,10 @@ export class VisitStats {
       case 'predict':
         b.pred += 1;
         break;
+      case 'ad':
+        b.ad += 1;
+        bump(b.ads, evt.t || '未知');
+        break;
     }
 
     await this.kv.put(`d:${day}`, b);
@@ -173,18 +181,18 @@ export class VisitStats {
 
   async summary(days: number, online = 0, now = Date.now()): Promise<StatsSummary> {
     const series: StatsDay[] = [];
-    const merged = { boards: {}, provinces: {}, refs: {}, geo: {}, dev: {} } as Record<
-      'boards' | 'provinces' | 'refs' | 'geo' | 'dev',
+    const merged = { boards: {}, provinces: {}, refs: {}, geo: {}, dev: {}, ads: {} } as Record<
+      'boards' | 'provinces' | 'refs' | 'geo' | 'dev' | 'ads',
       Record<string, number>
     >;
-    const totals = { pv: 0, uvDaySum: 0, uvPeak: 0, csv: 0, out: 0, pred: 0, prov: 0 };
+    const totals = { pv: 0, uvDaySum: 0, uvPeak: 0, csv: 0, out: 0, pred: 0, prov: 0, ad: 0 };
     let last: DayBucket = emptyBucket();
 
     for (let i = days - 1; i >= 0; i--) {
       const day = dayKey(now - i * 86_400_000);
       const b = await this.load(day);
       last = b;
-      series.push({ day, pv: b.pv, uv: b.uv, csv: b.csv, out: b.out, pred: b.pred, prov: b.prov });
+      series.push({ day, pv: b.pv, uv: b.uv, csv: b.csv, out: b.out, pred: b.pred, prov: b.prov, ad: b.ad });
       totals.pv += b.pv;
       totals.uvDaySum += b.uv;
       totals.uvPeak = Math.max(totals.uvPeak, b.uv);
@@ -192,6 +200,7 @@ export class VisitStats {
       totals.out += b.out;
       totals.pred += b.pred;
       totals.prov += b.prov;
+      totals.ad += b.ad;
       for (const k of Object.keys(merged) as (keyof typeof merged)[]) {
         for (const [kk, vv] of Object.entries(b[k] || {})) merged[k][kk] = (merged[k][kk] || 0) + vv;
       }
@@ -215,6 +224,7 @@ export class VisitStats {
       refs: top(merged.refs),
       geo: top(merged.geo),
       dev: top(merged.dev),
+      ads: top(merged.ads),
       online,
     };
   }

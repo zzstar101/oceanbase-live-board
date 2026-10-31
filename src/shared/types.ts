@@ -93,10 +93,10 @@ export interface HealthInfo {
 }
 
 /** 前端打点事件（/api/hit，sendBeacon text/plain） */
-export type HitKind = 'pv' | 'board' | 'csv' | 'out' | 'predict' | 'province';
+export type HitKind = 'pv' | 'board' | 'csv' | 'out' | 'predict' | 'province' | 'ad';
 export interface HitEvent {
   k: HitKind;
-  /** 榜单 id / 省份名等 */
+  /** 榜单 id / 省份名 / 推荐产品 id 等 */
   t?: string;
   /** document.referrer（仅 pv） */
   r?: string;
@@ -110,6 +110,7 @@ export interface StatsDay {
   out: number;
   pred: number;
   prov: number;
+  ad: number;
 }
 
 export interface NamedCount {
@@ -133,6 +134,8 @@ export interface StatsSummary {
     out: number;
     pred: number;
     prov: number;
+    /** 推荐位点击 */
+    ad: number;
   };
   boards: NamedCount[];
   todayBoards: NamedCount[];
@@ -140,6 +143,8 @@ export interface StatsSummary {
   refs: NamedCount[];
   geo: NamedCount[];
   dev: NamedCount[];
+  /** 推荐位点击，按产品 */
+  ads: NamedCount[];
   online: number;
 }
 

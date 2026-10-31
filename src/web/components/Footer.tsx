@@ -1,6 +1,7 @@
 import { fmtTime } from '../../shared/format.ts';
 import { MODE } from '../lib/config.ts';
 import { useLive } from '../lib/live.tsx';
+import { RecommendLinks } from './Recommend.tsx';
 
 export function Footer() {
   const { data } = useLive();
@@ -23,6 +24,8 @@ export function Footer() {
         <a className="hover:underline" href="https://github.com/zzstar101/oceanbase-live-board" target="_blank" rel="noreferrer">
           GitHub 源码
         </a>
+        <span className="mx-2">|</span>
+        相关产品：<RecommendLinks />
       </p>
     </footer>
   );

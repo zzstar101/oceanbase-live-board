@@ -197,13 +197,16 @@ describe('Hono API', () => {
   test('打点与统计：key 校验、days 非法不崩、UV 去重', async () => {
     for (let i = 0; i < 3; i++) await app.request('/api/hit', { method: 'POST', body: JSON.stringify({ k: 'pv', r: 'https://github.com/x' }) });
     await app.request('/api/hit', { method: 'POST', body: JSON.stringify({ k: 'province', t: '四川省' }) });
+    for (const t of ['seekdb', 'seekdb', 'powercontext'])
+      await app.request('/api/hit', { method: 'POST', body: JSON.stringify({ k: 'ad', t }) });
     expect((await app.request('/api/hit', { method: 'POST', body: '{bad' })).status).toBe(400);
     expect((await app.request('/api/stats?key=wrong')).status).toBe(404);
     const res = await app.request('/api/stats?days=abc', { headers: { Authorization: 'Bearer secret' } });
     expect(res.status).toBe(200);
     const s = await res.json();
     expect(s.days).toBe(14);
-    expect(s.today).toMatchObject({ pv: 3, uv: 1, prov: 1 });
+    expect(s.today).toMatchObject({ pv: 3, uv: 1, prov: 1, ad: 3 });
+    expect(s.ads).toEqual([{ name: 'seekdb', count: 2 }, { name: 'powercontext', count: 1 }]);
     expect(s.refs[0]).toMatchObject({ name: 'GitHub', count: 3 });
     expect(s.dev[0].name).toBe('mobile');
     expect(s.provinces[0]).toMatchObject({ name: '四川省', count: 1 });

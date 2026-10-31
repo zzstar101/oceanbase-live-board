@@ -11,6 +11,7 @@ import { Kpis } from '../components/Kpis.tsx';
 import { LeaderTable } from '../components/LeaderTable.tsx';
 import { PromotionPanel } from '../components/PromotionPanel.tsx';
 import { ProvinceMap } from '../components/ProvinceMap.tsx';
+import { Recommend } from '../components/Recommend.tsx';
 import { RegionPanel } from '../components/RegionPanel.tsx';
 import { ScoreDist } from '../components/ScoreDist.tsx';
 import { StarBar } from '../components/StarBar.tsx';
@@ -179,6 +180,7 @@ export function BoardPage() {
                     province={province}
                     onPick={(p) => setSearch({ province: p === province ? undefined : p || undefined })}
                   />
+                  <Recommend />
                   <FeedPanel snap={snap} board={board} province={province} onOpen={openTeam} />
                 </aside>
               </div>

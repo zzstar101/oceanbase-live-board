@@ -10,7 +10,7 @@ Bun 本地服务与 Cloudflare Worker 共用同一套 Hono 路由（`src/server/
 | `GET /api/export.csv?board=<id>[&province=<省份全称>]` | CSV（UTF-8 BOM，含省份列）；`province=__none__` 导出未填省份的 |
 | `GET /api/online` | 实时推送连接数 `{ sockets, lastPush, intervalMs }` |
 | `WS /api/stream` | 推送：每帧是 gzip 后的快照 JSON（浏览器用 `DecompressionStream` 解） |
-| `POST /api/hit` | 匿名打点 `{k:"pv"\|"board"\|"csv"\|"out"\|"predict"\|"province", t?, r?}`，204；格式错 400 |
+| `POST /api/hit` | 匿名打点 `{k:"pv"\|"board"\|"csv"\|"out"\|"predict"\|"province"\|"ad", t?, r?}`，204；格式错 400 |
 | `GET /api/stats?days=14` | 统计汇总，需 `Authorization: Bearer <STATS_KEY>`（或 `?key=`）；key 错 404，未配置 503；`days` 夹到 1–60 |
 
 数据结构见 `src/shared/types.ts`（`Snapshot` / `Board` / `Row` / `StatsSummary`）。
