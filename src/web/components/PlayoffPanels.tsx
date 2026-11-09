@@ -1,5 +1,5 @@
 // 加赛专用分析面板：复用初赛的「晋级形势」「出分耗时与预测」位置，
-// 但加赛没有晋级名额、官方也不公开评测耗时，所以不能直接套初赛模型。
+// 加赛按前 50 名晋级，但官方不公开评测耗时，所以不能直接套初赛模型。
 import { useMemo } from 'react';
 import { fmtScore, fmtTime, timeAgo } from '../../shared/format.ts';
 import { rowKey } from '../../shared/insights.ts';
@@ -8,7 +8,8 @@ import type { Board, Row } from '../../shared/types.ts';
 import { useNow } from '../lib/hooks.ts';
 import { cx, Empty, Pill } from './ui.tsx';
 
-const RANK_LIMIT = 80;
+const PROMOTION_LIMIT = 50;
+const DISPLAY_LIMIT = 80;
 const EPS = 1e-9;
 
 function rankRows(rows: Row[]) {
@@ -28,32 +29,32 @@ export function PlayoffStandingPanel({
 }) {
   const rows = board.rows;
   const sorted = useMemo(() => rankRows(rows), [rows]);
-  const cutoff = sorted.length >= RANK_LIMIT ? sorted[RANK_LIMIT - 1] : null;
+  const cutoff = sorted.length >= PROMOTION_LIMIT ? sorted[PROMOTION_LIMIT - 1] : null;
   const cutoffScore = cutoff?.score ?? null;
   const inCount = cutoffScore == null ? sorted.length : sorted.filter((r) => (r.score ?? -Infinity) >= cutoffScore - EPS).length;
   const near = useMemo(() => {
     const list = province ? filterByProvince(sorted, province) : sorted;
-    return list.filter((r) => r.rank >= RANK_LIMIT - 20 && r.rank <= RANK_LIMIT + 20).slice(0, 50);
+    return list.filter((r) => r.rank >= PROMOTION_LIMIT - 20 && r.rank <= PROMOTION_LIMIT + 20).slice(0, 50);
   }, [sorted, province]);
 
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-2">
-        <h3 className="card-title">加赛上榜形势</h3>
-        <Pill tone="amber">加赛不设晋级名额</Pill>
+        <h3 className="card-title">加赛晋级形势</h3>
+        <Pill tone="amber">前 50 名晋级</Pill>
       </div>
       <p className="text-sm leading-relaxed text-slate-600 dark:text-slate-300">
-        加赛是最终轮，没有下一阶段可晋级；官方三个榜只展示前 <b className="num">{RANK_LIMIT}</b> 名（含并列）。这里用当前第{' '}
-        {RANK_LIMIT} 名的分数作为临时「展示线」，随成绩刷新变化。{province && <> 省份筛选只影响下方列表，展示线仍按全国榜计算。</>}
+        加赛按前 <b className="num">{PROMOTION_LIMIT}</b> 名晋级；官方榜单页面展示前 <b className="num">{DISPLAY_LIMIT}</b> 名（含并列）。这里用当前第{' '}
+        {PROMOTION_LIMIT} 名的分数作为临时「晋级线」，随成绩刷新变化。{province && <> 省份筛选只影响下方列表，晋级线仍按全国榜计算。</>}
       </p>
 
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         <div className="rounded-lg bg-slate-50 px-3 py-2.5 dark:bg-slate-800/50">
-          <div className="text-xs text-slate-500 dark:text-slate-400">第 {RANK_LIMIT} 名分数</div>
+          <div className="text-xs text-slate-500 dark:text-slate-400">第 {PROMOTION_LIMIT} 名分数</div>
           <div className="num mt-0.5 text-lg font-semibold">{fmtScore(cutoffScore, digits)}</div>
         </div>
         <div className="rounded-lg bg-slate-50 px-3 py-2.5 dark:bg-slate-800/50">
-          <div className="text-xs text-slate-500 dark:text-slate-400">线上队伍</div>
+          <div className="text-xs text-slate-500 dark:text-slate-400">晋级区队伍</div>
           <div className="num mt-0.5 text-lg font-semibold">{cutoffScore == null ? '—' : inCount}</div>
         </div>
         <div className="rounded-lg bg-slate-50 px-3 py-2.5 dark:bg-slate-800/50">
@@ -67,9 +68,9 @@ export function PlayoffStandingPanel({
       </div>
 
       {cutoffScore == null ? (
-        <Empty>当前榜只有 {rows.length} 支队伍，尚未形成第 {RANK_LIMIT} 名展示线；开赛后队伍增加会自动出现。</Empty>
+        <Empty>当前榜只有 {rows.length} 支队伍，尚未形成第 {PROMOTION_LIMIT} 名晋级线；开赛后队伍增加会自动出现。</Empty>
       ) : near.length === 0 ? (
-        <Empty>{province ? `${provinceLabel(province)}暂无接近展示线的队伍` : '暂无接近展示线的队伍'}</Empty>
+        <Empty>{province ? `${provinceLabel(province)}暂无接近晋级线的队伍` : '暂无接近晋级线的队伍'}</Empty>
       ) : (
         <div className="overflow-x-auto rounded-lg border border-slate-200 dark:border-slate-700">
           <table className="w-full min-w-[560px] text-sm">
@@ -79,12 +80,13 @@ export function PlayoffStandingPanel({
                 <th className="px-3 py-2 font-medium">队伍</th>
                 <th className="px-3 py-2 font-medium">学校</th>
                 <th className="px-3 py-2 text-right font-medium">成绩</th>
-                <th className="px-3 py-2 text-right font-medium">距展示线</th>
+                <th className="px-3 py-2 text-right font-medium">距晋级线</th>
               </tr>
             </thead>
             <tbody>
               {near.map((r) => {
                 const gap = cutoffScore != null && r.score != null ? Math.max(0, cutoffScore - r.score) : null;
+                const inZone = cutoffScore != null && (r.score ?? -Infinity) >= cutoffScore - EPS;
                 return (
                   <tr
                     key={rowKey(r)}
@@ -95,8 +97,8 @@ export function PlayoffStandingPanel({
                     <td className="max-w-[12rem] truncate px-3 py-2 font-medium">{r.name}</td>
                     <td className="max-w-[10rem] truncate px-3 py-2 text-slate-500">{r.school || '—'}</td>
                     <td className="num px-3 py-2 text-right">{fmtScore(r.score, digits)}</td>
-                    <td className={cx('num px-3 py-2 text-right text-xs', r.rank <= RANK_LIMIT ? 'text-emerald-600 dark:text-emerald-300' : 'text-slate-500')}>
-                      {r.rank <= RANK_LIMIT ? '线上' : gap == null ? '—' : `差 ${fmtScore(gap, digits)}`}
+                    <td className={cx('num px-3 py-2 text-right text-xs', inZone ? 'text-emerald-600 dark:text-emerald-300' : 'text-slate-500')}>
+                      {inZone ? '晋级区' : gap == null ? '—' : `差 ${fmtScore(gap, digits)}`}
                     </td>
                   </tr>
                 );
@@ -107,7 +109,7 @@ export function PlayoffStandingPanel({
       )}
 
       <p className="text-xs leading-relaxed text-slate-400">
-        展示线只是根据当前榜单做的产品分析，不代表官方晋级或获奖规则；并列名次按官方榜单为准。
+        晋级线只是根据当前榜单做的产品分析，最终以官方规则为准；并列名次按官方榜单为准。
       </p>
     </div>
   );
@@ -148,10 +150,10 @@ export function PlayoffTimingPanel({
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-2">
         <h3 className="card-title">成绩提交时间</h3>
-        <Pill tone="amber">官方未提供评测耗时</Pill>
+        <Pill tone="amber">评测时间待核对</Pill>
       </div>
       <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm leading-relaxed text-amber-800 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-200">
-        官方加赛接口只返回 <code>submittedAt</code>（成绩提交时间），不提供评测开始/完成时间，也没有逐次提交记录，因此无法计算出分耗时或做 ETA 预测。下面展示可用的提交时间分布。
+        当前加赛榜单还是空的，公开接口尚未返回评测开始/完成时间；官方前端目前也只使用 <code>submittedAt</code>（成绩提交时间）。等开赛后拿到第一条原始 row，会核对完整字段；如果确实包含评测时间，再接真实耗时/ETA。下面先展示可用的提交时间分布。
       </div>
 
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
