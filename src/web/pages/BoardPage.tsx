@@ -1,50 +1,14 @@
 import { useNavigate } from '@tanstack/react-router';
-import { useCallback, useEffect, useMemo, useRef } from 'react';
-import { filterByProvince, provinceLabel, provinceStats } from '../../shared/province.ts';
-import type { Board, Row } from '../../shared/types.ts';
-import { BoardPicker } from '../components/BoardPicker.tsx';
-import { FeedPanel } from '../components/FeedPanel.tsx';
-import { FilterBar } from '../components/FilterBar.tsx';
+import { useCallback, useMemo } from 'react';
+import { provinceLabel } from '../../shared/province.ts';
+import type { Board } from '../../shared/types.ts';
 import { Footer } from '../components/Footer.tsx';
 import { Header } from '../components/Header.tsx';
-import { Kpis } from '../components/Kpis.tsx';
-import { LeaderTable } from '../components/LeaderTable.tsx';
-import { PromotionPanel } from '../components/PromotionPanel.tsx';
-import { ProvinceMap } from '../components/ProvinceMap.tsx';
-import { Sponsors } from '../components/Sponsors.tsx';
+import { LeaderboardView } from '../components/LeaderboardView.tsx';
 import { StarPrompt } from '../components/StarPrompt.tsx';
-import { RegionPanel } from '../components/RegionPanel.tsx';
-import { ScoreDist } from '../components/ScoreDist.tsx';
-import { StarBar } from '../components/StarBar.tsx';
-import { TeamDialog } from '../components/TeamDialog.tsx';
-import { TimingPanel } from '../components/TimingPanel.tsx';
-import { Card, cx, Empty } from '../components/ui.tsx';
-import { hit } from '../lib/api.ts';
+import { Card, Empty } from '../components/ui.tsx';
 import { useLive } from '../lib/live.tsx';
-import { boardRoute, type BoardSearch, type Tab } from '../router.tsx';
-
-/** 搜索：队名 / 学校 / 导师 / 省份，不区分大小写，空格分隔多个关键词须同时命中 */
-function searchRows(rows: Row[], q: string | undefined): Row[] {
-  const words = (q || '').toLowerCase().split(/\s+/).filter(Boolean);
-  if (!words.length) return rows;
-  return rows.filter((r) => {
-    const hay = `${r.name}\n${r.school}\n${r.advisor}\n${r.province}`.toLowerCase();
-    return words.every((w) => hay.includes(w));
-  });
-}
-
-/** 筛选后的组内名次（同分并列） */
-export function localRanks(rows: Row[]): Map<Row, number> {
-  const m = new Map<Row, number>();
-  let prev: number | null | undefined;
-  let rank = 0;
-  rows.forEach((r, i) => {
-    if (i === 0 || r.score !== prev) rank = i + 1;
-    prev = r.score;
-    m.set(r, rank);
-  });
-  return m;
-}
+import { boardRoute, type BoardSearch } from '../router.tsx';
 
 export function BoardPage() {
   const search = boardRoute.useSearch();
@@ -64,37 +28,10 @@ export function BoardPage() {
     return snap.boards.find((b) => b.id === (search.board || 'total')) ?? snap.boards[0];
   }, [snap, search.board]);
 
-  const province = search.province || '';
-  const tab: Tab = search.tab === 'timing' && board?.kind !== 'track' ? 'rank' : search.tab || 'rank';
-
-  // 卡片内滚动：切换榜单 / 省份 / 视图 / 搜索时回到顶部
-  const bodyRef = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    bodyRef.current?.scrollTo({ top: 0 });
-  }, [board?.id, province, tab, search.q]);
-
-  const provinceRows = useMemo(() => (board ? filterByProvince(board.rows, province) : []), [board, province]);
-  const shownRows = useMemo(() => searchRows(provinceRows, search.q), [provinceRows, search.q]);
-  const provinces = useMemo(() => (board ? provinceStats(board.rows) : []), [board]);
-
-  useEffect(() => {
-    if (board) hit({ k: 'board', t: board.id });
-  }, [board?.id]);
-  useEffect(() => {
-    if (province) hit({ k: 'province', t: province });
-  }, [province]);
   // React 19 原生文档元数据：<title> 写在组件里会被提升到 <head>
-  const pageTitle = board ? `${board.title}${province ? ` · ${provinceLabel(province)}` : ''} - OceanBase 榜单实时看板` : 'OceanBase 榜单实时看板';
-
-  const openTeam = useCallback((key: string) => setSearch({ team: key }, false), [setSearch]);
-
-  const tabs: { id: Tab; label: string; show: boolean }[] = [
-    { id: 'rank', label: '排行榜', show: true },
-    { id: 'dist', label: '分数分布', show: true },
-    { id: 'region', label: '省份与学校', show: true },
-    { id: 'promo', label: '晋级形势', show: true },
-    { id: 'timing', label: '出分耗时与预测', show: board?.kind === 'track' },
-  ];
+  const pageTitle = board
+    ? `${board.title}${search.province ? ` · ${provinceLabel(search.province)}` : ''} - OceanBase 榜单实时看板`
+    : 'OceanBase 榜单实时看板';
 
   return (
     <div className="flex min-h-dvh flex-col">
@@ -114,97 +51,19 @@ export function BoardPage() {
           </Card>
         ) : (
           board && (
-            <>
-              <StarBar snap={snap} onOpen={openTeam} />
-              <BoardPicker
-                boards={snap.boards}
-                current={board.id}
-                province={province}
-                onPick={(id) => setSearch({ board: id === 'total' ? undefined : id, team: undefined }, false)}
-              />
-              {board.error && (
-                <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-2.5 text-sm text-amber-800 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-200">
-                  {board.stale ? '上游刷新失败，暂时显示上一次成功抓取的数据：' : '该榜单抓取失败：'}
-                  {board.error}
-                </div>
-              )}
-              <FilterBar
-                board={board}
-                province={province}
-                provinces={provinces}
-                q={search.q || ''}
-                shown={shownRows.length}
-                onProvince={(p) => setSearch({ province: p || undefined })}
-                onQuery={(q) => setSearch({ q: q || undefined })}
-              />
-              <Kpis board={board} rows={provinceRows} province={province} snap={snap} />
-
-              {/* 宽屏：行高由右侧栏决定，左侧卡片拉伸到同样高度，内容在卡片内滚动（[contain:size] 让内容不参与撑高） */}
-              <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,1fr)_340px] lg:items-stretch">
-                <section className="card min-w-0 overflow-hidden lg:flex lg:min-h-[calc(100dvh-5rem)] lg:flex-col">
-                  <nav
-                    className="flex shrink-0 gap-5 overflow-x-auto border-b border-slate-200 px-4 pt-2 dark:border-slate-800"
-                    role="tablist"
-                    aria-label="视图"
-                  >
-                    {tabs
-                      .filter((t) => t.show)
-                      .map((t) => (
-                        <button
-                          key={t.id}
-                          type="button"
-                          role="tab"
-                          aria-selected={tab === t.id}
-                          className="tab shrink-0"
-                          onClick={() => setSearch({ tab: t.id === 'rank' ? undefined : t.id })}
-                        >
-                          {t.label}
-                        </button>
-                      ))}
-                  </nav>
-                  <div
-                    ref={bodyRef}
-                    className={cx(
-                      'lg:min-h-0 lg:flex-1 lg:overflow-y-auto lg:[contain:size]',
-                      tab === 'rank' ? '' : 'p-4',
-                    )}
-                  >
-                    {tab === 'rank' && (
-                      <LeaderTable board={board} rows={shownRows} province={province} query={search.q || ''} onOpen={openTeam} />
-                    )}
-                    {tab === 'dist' && <ScoreDist board={board} rows={provinceRows} province={province} onOpen={openTeam} />}
-                    {tab === 'region' && (
-                      <RegionPanel
-                        board={board}
-                        rows={provinceRows}
-                        provinces={provinces}
-                        province={province}
-                        onProvince={(p) => setSearch({ province: p || undefined })}
-                        onSchool={(s) => setSearch({ q: s, tab: undefined })}
-                      />
-                    )}
-                    {tab === 'promo' && <PromotionPanel snap={snap} province={province} onOpen={openTeam} />}
-                    {tab === 'timing' && board.kind === 'track' && <TimingPanel board={board} />}
-                  </div>
-                </section>
-
-                <aside className="space-y-4">
-                  <Sponsors />
-                  <ProvinceMap
-                    stats={provinces}
-                    province={province}
-                    onPick={(p) => setSearch({ province: p === province ? undefined : p || undefined })}
-                  />
-                  <FeedPanel snap={snap} board={board} province={province} onOpen={openTeam} />
-                </aside>
-              </div>
-            </>
+            <LeaderboardView
+              snap={snap}
+              boards={snap.boards}
+              board={board}
+              search={search}
+              onSearch={setSearch}
+              onPickBoard={(id) => setSearch({ board: id === 'total' ? undefined : id, team: undefined }, false)}
+            />
           )
         )}
       </main>
       <Footer />
       <StarPrompt />
-      {snap && search.team && <TeamDialog snap={snap} teamKey={search.team} onClose={() => setSearch({ team: undefined })} />}
     </div>
   );
 }

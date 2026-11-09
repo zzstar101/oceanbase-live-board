@@ -148,6 +148,106 @@ export interface StatsSummary {
   online: number;
 }
 
+// ---------------------------------------------------------------- 加赛（playoff）
+
+export type PlayoffBoardKey = 'combined' | 'performance' | 'prompt';
+
+/** 加赛入口信息。phase 由上游给出，前端再用 startsAt/endsAt 兜底推算。 */
+export interface PlayoffEntry {
+  campId: number;
+  questionId: number;
+  questionName: string;
+  /** 开赛时刻（毫秒时间戳，北京时间 2026-11-09 12:00） */
+  startsAt: number;
+  /** 结束时刻（毫秒时间戳） */
+  endsAt: number;
+  phase: string;
+}
+
+/** 加赛榜一行（三个榜共用一个结构，用不到的字段为 null） */
+export interface PlayoffRow {
+  groupId: number | null;
+  groupName: string;
+  /** 性能指标 E，官方保留 6 位小数 */
+  performance: number | null;
+  performancePoints: number | null;
+  performanceRank: number | null;
+  promptRawScore: number | null;
+  promptPoints: number | null;
+  promptRank: number | null;
+  combinedRank: number | null;
+  playoffScore: number | null;
+  preliminaryScore: number | null;
+  totalScore: number | null;
+  /** 成绩提交日（毫秒时间戳；上游可能给毫秒数或 ISO 字符串） */
+  submittedAt: number | null;
+}
+
+export interface PlayoffLeaderboard {
+  board: PlayoffBoardKey;
+  /** true = 官方标注的「暂定榜单」 */
+  provisional: boolean;
+  activityCode: number | null;
+  resultSequence: number | null;
+  total: number;
+  pageNo: number;
+  pageSize: number;
+  rows: PlayoffRow[];
+  performanceTop: PlayoffRow[];
+  promptTop: PlayoffRow[];
+  /** 抓取失败时的错误（rows 可能是上一次成功数据） */
+  error: string | null;
+  stale: boolean;
+  /** 本次数据抓取时刻（毫秒） */
+  at: number;
+}
+
+/** 提测表单字段（上游结构未定，保留原始键值；页面只展示 label/name） */
+export interface PlayoffFormField {
+  key?: string;
+  name?: string;
+  label?: string;
+  type?: string;
+  required?: boolean;
+  [k: string]: unknown;
+}
+
+/** /taskrecord/submissionOptions 的归一化结果 */
+export interface PlayoffSubmission {
+  managed: boolean;
+  submissionType: string;
+  evaluationMode: string;
+  resultFormat: string;
+  maxScore: number | null;
+  /** 代码仓库地址对应的表单槽位，如 gitUrlPlus */
+  repoSlot: string;
+  available: boolean;
+  requiredFields: PlayoffFormField[];
+  extraFields: PlayoffFormField[];
+  campId: number | null;
+  questionId: number | null;
+}
+
+/** 加赛题目介绍（题目未公开时 question 为 null） */
+export interface PlayoffQuestion {
+  id: number;
+  name: string;
+  /** 官方题目介绍 HTML */
+  introduce: string | null;
+}
+
+/** GET /api/playoff：入口 + 提测配置 + 题目介绍 */
+export interface PlayoffInfo {
+  entry: PlayoffEntry | null;
+  submission: PlayoffSubmission | null;
+  question: PlayoffQuestion | null;
+  /** 整体错误（entry 失败时） */
+  error: string | null;
+  entryError: string | null;
+  submissionError: string | null;
+  generatedAt: string;
+}
+
 /** 一条「提交 → 出分」样本（毫秒时间戳），由赛道榜行转换而来 */
 export interface Sample {
   /** 提测时刻（bestSubmit） */

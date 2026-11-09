@@ -57,6 +57,15 @@ export function Header() {
           </span>
         </Link>
 
+        <nav className="ml-2 hidden items-center gap-1.5 sm:flex" aria-label="页面">
+          <Link to="/" search={{}} className="chip px-2.5 py-1 text-xs" activeProps={{ 'aria-current': 'page' }}>
+            初赛榜单
+          </Link>
+          <Link to="/playoff" search={{}} className="chip px-2.5 py-1 text-xs" activeProps={{ 'aria-current': 'page' }}>
+            加赛榜
+          </Link>
+        </nav>
+
         <div className="ml-auto flex items-center gap-2 sm:gap-3">
           <div
             className="flex shrink-0 items-center gap-2 rounded-full border border-slate-200 bg-white px-2.5 py-1 text-xs whitespace-nowrap dark:border-slate-700 dark:bg-slate-900"

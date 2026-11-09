@@ -9,12 +9,11 @@ import {
 } from '@tanstack/react-table';
 import { useMemo } from 'react';
 import { fmtDur, fmtScore, fmtTime, toMs } from '../../shared/format.ts';
-import { rowKey } from '../../shared/insights.ts';
+import { localRanks, rowKey } from '../../shared/insights.ts';
 import { provinceShort } from '../../shared/province.ts';
 import type { Board, Row } from '../../shared/types.ts';
 import { useRecentChanges } from '../lib/changes.ts';
 import { toggleStar, useStars } from '../lib/stars.ts';
-import { localRanks } from '../pages/BoardPage.tsx';
 import { cx, Empty, RankBadge, RankDelta, ScoreDelta, StarButton } from './ui.tsx';
 
 // 中文按拼音排序（原生 Intl.Collator）；空值永远沉底
@@ -80,18 +79,27 @@ export function LeaderTable({
   province,
   query,
   onOpen,
+  scoreDigits,
+  scoreHeader,
+  footerNote,
 }: {
   board: Board;
   rows: Row[];
   province: string;
   query: string;
   onOpen: (key: string) => void;
+  /** 加赛榜用：不同榜的成绩精度不同 */
+  scoreDigits?: number;
+  scoreHeader?: string;
+  footerNote?: string;
 }) {
   const { isStarred } = useStars();
   const changes = useRecentChanges(board.id);
   const words = useMemo(() => query.toLowerCase().split(/\s+/).filter(Boolean), [query]);
   const local = useMemo(() => (province ? localRanks(rows) : null), [rows, province]);
   const isTrack = board.kind === 'track';
+  // 加赛 Prompt 榜表头较长，移动端给成绩列多一点宽度；初赛「成绩」保持原宽度。
+  const scoreColWidth = scoreHeader && scoreHeader.length > 2 ? 'w-[8rem]' : 'w-[6rem]';
 
   const columns = useMemo(
     () => col.columns([
@@ -174,7 +182,7 @@ export function LeaderTable({
       }),
       col.accessor((r) => undef(r.score), {
         id: 'score',
-        header: '成绩',
+        header: scoreHeader ?? '成绩',
         sortFn: 'basic',
         sortUndefined: 'last',
         sortDescFirst: true,
@@ -184,11 +192,11 @@ export function LeaderTable({
           return (
             <div className="flex items-center justify-end gap-1.5">
               {ch && ch.prevScore != null && <ScoreDelta d={(r.score ?? 0) - ch.prevScore} />}
-              <span className="num font-semibold text-slate-900 dark:text-slate-100">{fmtScore(r.score)}</span>
+              <span className="num font-semibold text-slate-900 dark:text-slate-100">{fmtScore(r.score, scoreDigits)}</span>
             </div>
           );
         },
-        meta: { className: 'text-right w-[6rem] sm:w-[9rem]' },
+        meta: { className: `text-right whitespace-nowrap ${scoreColWidth} sm:w-[9rem]` },
       }),
       col.accessor((r) => undef(toMs(r.updated)), {
         id: 'updated',
@@ -213,7 +221,7 @@ export function LeaderTable({
         meta: { className: 'hidden sm:table-cell text-right w-[10.5rem]' },
       }),
     ]),
-    [changes, isStarred, local, words, isTrack],
+    [changes, isStarred, local, words, isTrack, scoreDigits, scoreHeader],
   );
 
   const table = useTable({
@@ -287,7 +295,7 @@ export function LeaderTable({
       </table>
       <p className="px-4 py-3 text-xs text-slate-400">
         点击任意一行查看该队在所有赛道的成绩。名次按成绩排序、同分并列；{province ? '「省内」为筛选后的名次；' : ''}
-        {board.kind === 'track' ? '耗时 = 最优那次提交从提交到出分的时间。' : '总分 = 各赛道最好成绩之和。'}
+        {footerNote ?? (board.kind === 'track' ? '耗时 = 最优那次提交从提交到出分的时间。' : '总分 = 各赛道最好成绩之和。')}
       </p>
     </div>
   );

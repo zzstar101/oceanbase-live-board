@@ -4,7 +4,7 @@
 
 # OceanBase 榜单实时看板
 
-**数据库大赛总榜 · seekdb AI 训练营 11 个赛道 —— 全量名单、按省份筛选、出分预测，一页看清**
+**数据库大赛总榜 · seekdb AI 训练营 11 个赛道 · 加赛榜 —— 全量名单、按省份筛选、出分预测，一页看清**
 
 [![在线看板](https://img.shields.io/badge/在线看板-GitHub_Pages-1f6fff?style=flat-square&logo=github)](https://zzstar101.github.io/oceanbase-live-board/)
 [![实时直连](https://img.shields.io/badge/实时直连-board.nerv--base.com-f38020?style=flat-square&logo=cloudflare&logoColor=white)](https://board.nerv-base.com/)
@@ -44,6 +44,7 @@
 | 想看什么 | 怎么做 |
 | --- | --- |
 | 某个赛道 | 点顶部的赛道标签，数字是参赛队伍数 |
+| **加赛榜** | 顶栏切到「加赛榜」：加赛总榜 / 性能榜 / Agent Prompt 榜；同样支持省份筛选、搜索、分数分布、队伍详情、关注与 CSV |
 | **只看某个省** | 用「省份」下拉框，或点右侧**省份地图**上的格子 / 「省份与学校」表里的省份。整页（榜单、指标、分布、动态、CSV）都会切换，名次旁边会多一个「省内名次」；再点一次取消 |
 | 找队伍 / 学校 / 导师 | 搜索框，空格分隔多个关键词；在「省份与学校」里点学校名也会直接搜索 |
 | 一支队伍的全部成绩 | 点榜单里的队名：总榜名次、各赛道成绩与满分、最优提交和耗时、现在提交大约何时出分 |

@@ -9,7 +9,8 @@ import { RankDelta } from './ui.tsx';
 /** 关注的队伍：总榜名次 + 各赛道名次一览 */
 export function StarBar({ snap, onOpen }: { snap: Snapshot; onOpen: (key: string) => void }) {
   const { stars } = useStars();
-  const totalChanges = useRecentChanges('total');
+  const totalBoard = snap.boards.find((b) => b.kind === 'total');
+  const totalChanges = useRecentChanges(totalBoard?.id ?? 'total');
   const teams = useMemo(() => stars.map((s) => ({ star: s, view: findTeam(snap, s.key) })), [stars, snap]);
   if (!teams.length) return null;
 

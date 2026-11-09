@@ -1,4 +1,4 @@
-import type { HitEvent, Snapshot, StatsSummary } from '../../shared/types.ts';
+import type { HitEvent, PlayoffBoardKey, PlayoffInfo, PlayoffLeaderboard, Snapshot, StatsSummary } from '../../shared/types.ts';
 import { API_BASE, IS_LOCAL, MODE, STATIC_SNAPSHOT_URL } from './config.ts';
 
 export type SnapshotSource = 'live' | 'push' | 'static';
@@ -55,10 +55,29 @@ export function csvUrl(boardId: string, province: string) {
   return `${API_BASE}/api/export.csv?${u}`;
 }
 
+/** 加赛榜 CSV：服务端用初赛快照补齐学校/省份后再导出 */
+export function playoffCsvUrl(board: PlayoffBoardKey, province: string) {
+  const u = new URLSearchParams({ board });
+  if (province) u.set('province', province);
+  return `${API_BASE}/api/playoff/export.csv?${u}`;
+}
+
 export const streamUrl = () => {
   const base = API_BASE || location.origin;
   return base.replace(/^http/, 'ws') + '/api/stream';
 };
+
+/** 加赛首屏信息：入口、提测配置、题目介绍 */
+export function fetchPlayoffInfo(force = false) {
+  return getJson<PlayoffInfo>(`${API_BASE}/api/playoff${force ? '?force=1' : ''}`, { cache: 'no-store' });
+}
+
+/** 加赛榜（combined | performance | prompt）；questionId 省略时由服务端从入口取 */
+export function fetchPlayoffBoard(board: PlayoffBoardKey, questionId?: number) {
+  const q = new URLSearchParams({ board });
+  if (questionId) q.set('questionId', String(questionId));
+  return getJson<PlayoffLeaderboard>(`${API_BASE}/api/playoff/leaderboard?${q}`, { cache: 'no-store' });
+}
 
 export function fetchStats(key: string, days: number) {
   return getJson<StatsSummary>(`${API_BASE}/api/stats?days=${days}`, {

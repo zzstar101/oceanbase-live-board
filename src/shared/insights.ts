@@ -8,6 +8,29 @@ const EPS = 1e-9;
 export const rowKey = (r: Row): string =>
   r.groupId != null ? `g${r.groupId}` : r.userId ? `u${r.userId}` : `n${r.name}`;
 
+/** 搜索：队名 / 学校 / 导师 / 省份，不区分大小写，空格分隔多个关键词须同时命中 */
+export function searchRows(rows: Row[], q: string | undefined): Row[] {
+  const words = (q || '').toLowerCase().split(/\s+/).filter(Boolean);
+  if (!words.length) return rows;
+  return rows.filter((r) => {
+    const hay = `${r.name}\n${r.school}\n${r.advisor}\n${r.province}`.toLowerCase();
+    return words.every((w) => hay.includes(w));
+  });
+}
+
+/** 筛选后的组内名次（同分并列） */
+export function localRanks(rows: Row[]): Map<Row, number> {
+  const m = new Map<Row, number>();
+  let prev: number | null | undefined;
+  let rank = 0;
+  rows.forEach((r, i) => {
+    if (i === 0 || r.score !== prev) rank = i + 1;
+    prev = r.score;
+    m.set(r, rank);
+  });
+  return m;
+}
+
 const ms = (iso: string | null): number | null => {
   if (!iso) return null;
   const t = Date.parse(iso);

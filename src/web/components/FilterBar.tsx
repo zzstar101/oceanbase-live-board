@@ -11,6 +11,7 @@ export function FilterBar({
   shown,
   onProvince,
   onQuery,
+  csvHref,
 }: {
   board: Board;
   province: string;
@@ -19,6 +20,8 @@ export function FilterBar({
   shown: number;
   onProvince: (p: string) => void;
   onQuery: (q: string) => void;
+  /** 加赛榜使用独立的导出端点 */
+  csvHref?: string;
 }) {
   // 输入框本地状态 + 防抖写回 URL
   const [text, setText] = useState(q);
@@ -91,7 +94,7 @@ export function FilterBar({
       <div className="ml-auto flex items-center gap-2">
         <a
           className="btn"
-          href={csvUrl(board.id, province)}
+          href={csvHref ?? csvUrl(board.id, province)}
           download
           onClick={() => hit({ k: 'csv', t: board.id })}
           title={province ? `导出 ${provinceLabel(province)} 的 ${board.title}` : `导出 ${board.title}`}

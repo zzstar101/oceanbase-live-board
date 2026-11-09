@@ -51,7 +51,7 @@ export function setFetch(f: FetchFn) {
   fetchImpl = f;
 }
 
-async function getJson(path: string, params: Record<string, string | number>, tries = 3): Promise<any> {
+export async function getJson(path: string, params: Record<string, string | number>, tries = 3): Promise<any> {
   const url = new URL(API + path);
   for (const [k, v] of Object.entries(params)) url.searchParams.set(k, String(v));
 
@@ -210,7 +210,7 @@ export function clearCache() {
  *      现在统一包一层 Cached<T>，不改写 value 本身。
  *   2. 失败且没有兜底时，被拒绝的 promise 留在缓存里，TTL 内所有请求都直接失败；现在失败立即清掉条目。
  */
-function cached<T>(key: string, loader: () => Promise<T>, ttl: number): Promise<Cached<T>> {
+export function cached<T>(key: string, loader: () => Promise<T>, ttl: number): Promise<Cached<T>> {
   const hit = cache.get(key) as Entry<T> | undefined;
   const now = Date.now();
   if (hit && now - hit.at < ttl) return hit.promise;

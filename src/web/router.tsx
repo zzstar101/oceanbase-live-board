@@ -2,6 +2,7 @@
 import { createRootRoute, createRoute, createRouter, Outlet } from '@tanstack/react-router';
 import { BASEPATH } from './lib/config.ts';
 import { BoardPage } from './pages/BoardPage.tsx';
+import { PlayoffPage } from './pages/PlayoffPage.tsx';
 import { StatsPage } from './pages/StatsPage.tsx';
 
 export const TABS = ['rank', 'dist', 'region', 'promo', 'timing'] as const;
@@ -13,6 +14,16 @@ export interface BoardSearch {
   /** 省份全称；'__none__' = 未填 */
   province?: string;
   /** 队伍 / 学校 / 导师搜索 */
+  q?: string;
+  tab?: Tab;
+  /** 打开详情抽屉的队伍 rowKey */
+  team?: string;
+}
+
+export interface PlayoffSearch {
+  /** 加赛榜：combined | performance | prompt */
+  board?: 'performance' | 'prompt';
+  province?: string;
   q?: string;
   tab?: Tab;
   /** 打开详情抽屉的队伍 rowKey */
@@ -40,6 +51,23 @@ export const boardRoute = createRoute({
   component: BoardPage,
 });
 
+export const playoffRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/playoff',
+  validateSearch: (s: Record<string, unknown>): PlayoffSearch => {
+    const playoffTabs = ['rank', 'dist', 'region'] as const;
+    const tab = playoffTabs.includes(s.tab as (typeof playoffTabs)[number]) ? (s.tab as (typeof playoffTabs)[number]) : undefined;
+    return {
+      board: s.board === 'performance' || s.board === 'prompt' ? s.board : undefined,
+      province: str(s.province),
+      q: str(s.q),
+      tab: tab && tab !== 'rank' ? tab : undefined,
+      team: str(s.team),
+    };
+  },
+  component: PlayoffPage,
+});
+
 export const statsRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/stats',
@@ -47,7 +75,7 @@ export const statsRoute = createRoute({
 });
 
 export const router = createRouter({
-  routeTree: rootRoute.addChildren([boardRoute, statsRoute]),
+  routeTree: rootRoute.addChildren([boardRoute, playoffRoute, statsRoute]),
   basepath: BASEPATH,
   defaultPreload: false,
   scrollRestoration: true,

@@ -8,11 +8,13 @@ export function BoardPicker({
   current,
   province,
   onPick,
+  totalLabel = '总榜',
 }: {
   boards: Board[];
   current: string;
   province: string;
   onPick: (id: string) => void;
+  totalLabel?: string;
 }) {
   const counts = useMemo(
     () => new Map(boards.map((b) => [b.id, province ? filterByProvince(b.rows, province).length : b.rows.length])),
@@ -33,7 +35,7 @@ export function BoardPicker({
             title={`${b.title}${province ? `（${province} ${n} 队）` : `（${n} 队）`}`}
           >
             {b.kind === 'total' && <span aria-hidden>🏆</span>}
-            <span className="max-w-[16em] truncate">{b.kind === 'total' ? '总榜' : b.title}</span>
+            <span className="max-w-[16em] truncate">{b.kind === 'total' ? totalLabel : b.title}</span>
             <span
               className={cx(
                 'num rounded-full px-1.5 text-[11px]',

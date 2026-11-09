@@ -112,6 +112,7 @@ const server: Bun.Server<WsData> = Bun.serve({
   routes: {
     // SPA：所有页面路由都回 index.html（HTML import 由 Bun 原生打包，含 Tailwind 插件，见 bunfig.toml）
     '/': index,
+    '/playoff': index,
     '/stats': index,
     '/api/stream': (req, srv) => {
       if (srv.upgrade(req, { data: { connectedAt: Date.now() } })) return undefined;
