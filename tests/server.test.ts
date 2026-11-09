@@ -141,6 +141,17 @@ describe('upstream cache', () => {
     expect(zs.rank).toBe(2);
   });
 
+  test('加赛题 600081 出现在题目列表时，不混进普通赛道快照', async () => {
+    const original = upstream.questions;
+    upstream.questions = [...original, { id: 600081, questionName: '轻量向量数据库（MiniVectorDB）', sort: 3 }];
+    try {
+      const snap = await getSnapshot();
+      expect(snap.boards.map((b) => b.id)).toEqual(['total', 'q1']);
+    } finally {
+      upstream.questions = original;
+    }
+  });
+
   test('stale-while-error：数组值不被改写（旧实现会把题目列表摊成对象）', async () => {
     const first = await getQuestions();
     upstream.fail = true;

@@ -16,6 +16,9 @@ const UA =
   'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36';
 const PAGE_SIZE = 5000;
 
+/** 加赛题：由 playoff/* 接口提供，不能混进普通赛道榜快照。 */
+export const PLAYOFF_QUESTION_ID = 600081;
+
 export interface UpstreamConfig {
   campId: number;
   /** 榜单缓存时长 */
@@ -283,7 +286,8 @@ const emptyPayload = (e: unknown): Cached<BoardPayload> => ({
 export async function getSnapshot({ force = false } = {}): Promise<Snapshot> {
   const campId = config.campId;
   const totalP = getTotalBoard({ force }).catch(emptyPayload);
-  const questions = (await getQuestions({ force })).value;
+  // 题目列表在赛题上线后会多出加赛题 600081；它没有普通赛道榜，必须排除，否则构建会多一个空榜。
+  const questions = (await getQuestions({ force })).value.filter((q) => q.id !== PLAYOFF_QUESTION_ID);
   const [total, ...tracks] = await Promise.all([
     totalP,
     ...questions.map((q) => getTrackBoard(q.id, { force }).catch(emptyPayload)),
