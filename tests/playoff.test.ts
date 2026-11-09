@@ -1,7 +1,7 @@
 // 加赛：上游归一化、缓存兜底、Hono 路由
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import { createApi } from '../src/server/app.ts';
-import { buildPlayoffTeamMeta, playoffRowToRow, playoffStartsAt } from '../src/shared/playoff.ts';
+import { buildPlayoffTeamMeta, playoffRowToRow, playoffRowToTimingRow, playoffStartsAt } from '../src/shared/playoff.ts';
 import type { Board } from '../src/shared/types.ts';
 import {
   getPlayoffInfo,
@@ -96,6 +96,30 @@ describe('normalizePlayoffRow', () => {
     });
     expect(normalizePlayoffRow({ groupId: 9 }).groupName).toBe('队伍 #9');
   });
+
+  test('invalid completion times fall through to valid fields without producing invalid dates', () => {
+    const done = Date.parse('2026-11-09T06:35:00Z');
+    for (const invalid of [0, ' ', false, true, 1e20, -1, Infinity, 'invalid', '2026-11-09T06:35:00', '2026-99-99T06:35:00Z']) {
+      const fallback = normalizePlayoffRow({ submittedAt: upstream.rows[0]!.submittedAt, evaluatedAt: invalid, completedAt: done });
+      expect(fallback.evaluatedAt).toBe(done);
+      const empty = normalizePlayoffRow({ submittedAt: invalid, evaluatedAt: invalid, completedAt: invalid, updatedAt: invalid });
+      expect(empty.submittedAt).toBeNull();
+      expect(empty.evaluatedAt).toBeNull();
+      expect(() => playoffRowToRow(empty, 'combined', 0)).not.toThrow();
+      expect(() => playoffRowToTimingRow(empty, 'combined', 0)).not.toThrow();
+    }
+  });
+
+  test('normalizes explicit completion timestamps independently from submittedAt and cache time', () => {
+    const done = Date.parse('2026-11-09T06:35:00Z');
+    for (const [field, value] of [['evaluatedAt', done], ['completedAt', String(done)], ['updatedAt', '2026-11-09T06:35:00Z']] as const) {
+      expect(normalizePlayoffRow({ ...upstream.rows[0], [field]: value }).evaluatedAt).toBe(done);
+    }
+    expect(normalizePlayoffRow({ ...upstream.rows[0], evaluatedAt: done, completedAt: done + 1000, updatedAt: done + 2000 }).evaluatedAt).toBe(done);
+    expect(normalizePlayoffRow({ ...upstream.rows[0], evaluatedAt: 'invalid', completedAt: done }).evaluatedAt).toBe(done);
+    expect(normalizePlayoffRow({ ...upstream.rows[0], fetchedAt: done, at: done }).evaluatedAt).toBeNull();
+    expect(normalizePlayoffRow({ submittedAt: done, evaluatedAt: 'invalid', updatedAt: '' }).evaluatedAt).toBeNull();
+  });
 });
 
 describe('playoffStartsAt', () => {
@@ -174,9 +198,20 @@ describe('playoff Row 映射', () => {
       province: '浙江省',
       score: 670.25,
       bestSubmit: null,
+      updated: '2026-11-09T06:30:00.000Z',
     });
     expect(playoffRowToRow(row, 'performance', 0, meta).score).toBe(123.456789);
     expect(playoffRowToRow(row, 'prompt', 0, meta).score).toBe(88.5);
+  });
+
+  test('maps submittedAt to bestSubmit and explicit evaluatedAt to updated for timing samples', () => {
+    const done = Date.parse('2026-11-09T06:35:00Z');
+    const row = normalizePlayoffRow({ ...upstream.rows[0], completedAt: done });
+    for (const key of ['combined', 'performance', 'prompt'] as const) {
+      expect(playoffRowToTimingRow(row, key, 0)).toMatchObject({ bestSubmit: '2026-11-09T06:30:00.000Z', updated: '2026-11-09T06:35:00.000Z' });
+      expect(playoffRowToRow(row, key, 0)).toMatchObject({ bestSubmit: null, updated: '2026-11-09T06:30:00.000Z' });
+    }
+    expect(playoffRowToTimingRow({ ...row, evaluatedAt: undefined }, 'combined', 0).updated).toBeNull();
   });
 
   test('buildPlayoffTeamMeta 总榜优先、后面的榜只补空字段', () => {

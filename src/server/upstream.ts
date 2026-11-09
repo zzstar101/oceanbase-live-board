@@ -251,7 +251,7 @@ export const getTrackBoard = (questionId: number | string, { force = false } = {
  * 赛道榜的学校/导师/省份很多是空的：用总榜按 groupId（队伍）补齐，userId 兜底。
  * 每个字段独立补——旧实现「有学校就整行跳过」，导致有学校没省份的行（每个赛道 20%+）省份永远为空。
  */
-export function enrichRows(rows: Row[], totalRows: Row[]): Row[] {
+export function enrichRows(rows: Row[], totalRows: Row[], { groupIdOnly = false } = {}): Row[] {
   const byGroup = new Map<number, Row>();
   const byUser = new Map<string, Row>();
   for (const r of totalRows) {
@@ -259,7 +259,7 @@ export function enrichRows(rows: Row[], totalRows: Row[]): Row[] {
     if (r.userId && !byUser.has(r.userId)) byUser.set(r.userId, r);
   }
   return rows.map((r) => {
-    const hit = (r.groupId != null && byGroup.get(r.groupId)) || (r.userId && byUser.get(r.userId)) || null;
+    const hit = (r.groupId != null && byGroup.get(r.groupId)) || (!groupIdOnly && r.userId && byUser.get(r.userId)) || null;
     if (!hit || (r.school && r.advisor && r.province)) return r;
     return {
       ...r,
@@ -283,7 +283,7 @@ const emptyPayload = (e: unknown): Cached<BoardPayload> => ({
 });
 
 /** 整站快照：总榜 + 全部赛道（赛道按参与人数降序） */
-export async function getSnapshot({ force = false } = {}): Promise<Snapshot> {
+export async function getSnapshot({ force = false, groupIdOnly = false } = {}): Promise<Snapshot> {
   const campId = config.campId;
   const totalP = getTotalBoard({ force }).catch(emptyPayload);
   // 题目列表在赛题上线后会多出加赛题 600081；它没有普通赛道榜，必须排除，否则构建会多一个空榜。
@@ -301,6 +301,7 @@ export async function getSnapshot({ force = false } = {}): Promise<Snapshot> {
     rows: total.value.rows,
     error: total.error,
     stale: total.stale,
+    fetchedAt: total.at,
     reportedTotal: total.value.reportedTotal,
     source: TOTAL_SOURCE,
   };
@@ -312,9 +313,10 @@ export async function getSnapshot({ force = false } = {}): Promise<Snapshot> {
       title: q.name,
       kind: 'track',
       questionId: q.id,
-      rows: enrichRows(t.value.rows, totalBoard.rows),
+      rows: enrichRows(t.value.rows, totalBoard.rows, { groupIdOnly }),
       error: t.error,
       stale: t.stale,
+      fetchedAt: t.at,
       reportedTotal: t.value.reportedTotal,
       source: trackSource(campId, q.id),
     };

@@ -114,6 +114,7 @@ const server: Bun.Server<WsData> = Bun.serve({
     '/': index,
     '/playoff': index,
     '/stats': index,
+    '/mcp': index,
     '/api/stream': (req, srv) => {
       if (srv.upgrade(req, { data: { connectedAt: Date.now() } })) return undefined;
       return Response.json({ error: 'expected websocket' }, { status: 426 });

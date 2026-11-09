@@ -8,3 +8,6 @@ dist/
 .dev.vars
 # wrangler types 生成（bun run types）
 worker-configuration.d.ts
+# Local browser verification artifacts
+.playwright-cli/
+output/playwright/

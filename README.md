@@ -36,8 +36,8 @@
 
 官方页面只显示 Top 10，这里是**全部队伍**。直接打开就能用，不用登录：
 
-- **实时版** <https://board.nerv-base.com/> —— 有新成绩会自动推送到页面
-- **备用版** <https://zzstar101.github.io/oceanbase-live-board/> —— 实时版连不上时自动退回每 10 分钟一次的快照（顶栏显示「静态快照」）
+- **在线看板** <https://zzstar101.github.io/oceanbase-live-board/> —— 公开首页，优先接收实时数据；实时服务连不上时自动使用每 10 分钟更新的快照
+- **实时直连** <https://board.nerv-base.com/> —— 实时后端与同源看板，有新成绩会自动推送到页面
 
 ## 怎么用
 
@@ -62,6 +62,14 @@
 > [!WARNING]
 > 出分预测只能根据「已经出分的记录」反推，平台停摆（曾出现过 5–16 小时零出分）没法预测；遇到这种情况面板会直接写「无法预测」。原理和准确度见 [出分预测](docs/prediction.md)。
 
+## 用 AI 读榜（MCP）
+
+公开只读、免 API Key 的 **Streamable HTTP MCP** 接口位于 `/api/mcp`，文档页位于 `/mcp`（首页顶栏「MCP」，手机可见）。可发现榜单、搜索队伍、跨赛题查成绩、分析分数线，并按赛题估计出分时刻与 **80% 区间**。
+
+初赛赛题与加赛 `q600081` 支持 ETA，三种加赛榜共用该赛题的模型；总榜不提供 ETA。暂无样本时显示“暂无出分样本”，样本齐备后返回预测。查询附带抓取时间与 `stale` 状态，时效阈值为 120 秒。
+
+在线接入页：**[MCP 接入](https://zzstar101.github.io/oceanbase-live-board/mcp)**；Claude Code / Codex / Cursor 的配置、示例问题与数据说明也可在 [仓库文档](docs/mcp.md) 查看。远程 MCP 服务地址为 `https://board.nerv-base.com/api/mcp`，本地默认为 `http://127.0.0.1:8791/api/mcp`。Pages 是公开首页与文档入口，客户端通过远程 MCP 服务查询数据。
+
 ## 截图
 
 | 按省份筛选 | 出分耗时与预测 |
@@ -85,7 +93,8 @@ bun run dev          # → http://127.0.0.1:8791
 | --- | --- |
 | [本地开发](docs/development.md) | 命令、技术栈、目录结构、环境变量 |
 | [部署](docs/deployment.md) | Cloudflare Worker、GitHub Pages、任意主机 |
-| [接口](docs/api.md) | HTTP / WebSocket 接口，上游接口与踩过的坑 |
+| [接口](docs/api.md) | HTTP / WebSocket / MCP 接口，上游接口与踩过的坑 |
+| [MCP 接入](docs/mcp.md) | Claude Code / Codex / Cursor 配置、五个工具、数据时效与赛题预测 |
 | [出分预测](docs/prediction.md) | 耗时清洗、预测算法与回测数据 |
 | [访问统计](docs/stats.md) | 统计了什么、怎么开启、后台 `/stats` |
 | [更新记录](CHANGELOG.md) | 版本变化与修掉的问题 |
@@ -96,4 +105,4 @@ bun run dev          # → http://127.0.0.1:8791
 
 <br />
 
-<div align="center"><sub>以 <a href="LICENSE">MIT</a> 协议开源 · 数据来自 <a href="https://open.oceanbase.com/">open.oceanbase.com</a> 公开榜单接口，本项目与 OceanBase 官方无关。</sub></div>
+<div align="center"><sub>以 <a href="LICENSE">MIT</a> 协议开源 · 数据来自 <a href="https://open.oceanbase.com/">open.oceanbase.com</a> 公开榜单接口。</sub></div>

@@ -60,6 +60,20 @@ export function playoffRowToRow(
   };
 }
 
+/** 加赛耗时模型专用映射：提交与成绩完成时间分离，保留现有页面的 Row 映射。 */
+export function playoffRowToTimingRow(
+  r: PlayoffRow,
+  board: PlayoffBoardKey,
+  index: number,
+  meta?: PlayoffTeamMeta | null,
+): Row {
+  return {
+    ...playoffRowToRow(r, board, index, meta),
+    bestSubmit: r.submittedAt == null ? null : new Date(r.submittedAt).toISOString(),
+    updated: r.evaluatedAt == null ? null : new Date(r.evaluatedAt).toISOString(),
+  };
+}
+
 /** groupId → 初赛队伍资料。总榜优先；后面的榜只补空字段。 */
 export function buildPlayoffTeamMeta(boards: Board[]): Map<number, PlayoffTeamMeta> {
   const out = new Map<number, PlayoffTeamMeta>();

@@ -44,6 +44,8 @@ export interface Board {
   error: string | null;
   /** true = 上游抖动，rows 是最后一次成功的数据 */
   stale: boolean;
+  /** 与 rows 原子取得的最后一次成功缓存时间；0 或缺失表示未知，不能用 generatedAt 替代。 */
+  fetchedAt?: number;
   /** 上游报告的总数（总榜可信；赛道榜只是本次返回条数） */
   reportedTotal: number | null;
   /** 源站页面 */
@@ -181,6 +183,8 @@ export interface PlayoffRow {
   totalScore: number | null;
   /** 成绩提交日（毫秒时间戳；上游可能给毫秒数或 ISO 字符串） */
   submittedAt: number | null;
+  /** 上游成绩完成/更新时间（evaluatedAt、completedAt 或 updatedAt）；缺失时无出分样本。 */
+  evaluatedAt?: number | null;
 }
 
 export interface PlayoffLeaderboard {

@@ -5,6 +5,8 @@ Bun 本地服务与 Cloudflare Worker 共用同一套 Hono 路由（`src/server/
 | 路由 | 说明 |
 | --- | --- |
 | `GET /api/health` | 存活、campId、缓存 TTL、运行时、是否开启推送 / 统计 |
+| `POST /api/mcp` | 公开只读、免 Key 的 Streamable HTTP MCP（JSON-RPC）；客户端接入与五个工具见 [MCP 接入](mcp.md) |
+| `GET /mcp` | 独立 MCP 文档页；不依赖榜单获取或实时连接，Pages 下指向配置的 `liveOrigin` |
 | `GET /api/snapshot[?force=1]` | 总榜 + 全部赛道（约 1.3 MB，gzip 后约 200 KB）；`X-Source` 头说明来源；所有榜单都为空时 502 |
 | `GET /api/board/<id>` | 单个榜单，`id` = `total` / `q600071` / `600071` |
 | `GET /api/playoff` | 加赛首屏：入口、提测配置、题目介绍（`entry` / `submission` / `question`） |
@@ -17,6 +19,26 @@ Bun 本地服务与 Cloudflare Worker 共用同一套 Hono 路由（`src/server/
 | `GET /api/stats?days=14` | 统计汇总，需 `Authorization: Bearer <STATS_KEY>`（或 `?key=`）；key 错 404，未配置 503；`days` 夹到 1–60 |
 
 数据结构见 `src/shared/types.ts`（`Snapshot` / `Board` / `Row` / `StatsSummary`）。
+
+## MCP 只读接口
+
+`/api/mcp` 是公开只读、免 API Key 的 Streamable HTTP JSON-RPC 服务，支持 `initialize`、`tools/list` 和 `tools/call`。远程服务地址：`https://board.nerv-base.com/api/mcp`；公开文档页：[MCP 接入](https://zzstar101.github.io/oceanbase-live-board/mcp)，从 [Pages 首页](https://zzstar101.github.io/oceanbase-live-board/) 顶栏进入。
+
+| 工具 | 参数 |
+| --- | --- |
+| `oceanbase_list_boards` | `{}` |
+| `oceanbase_query_leaderboard` | `{ boardId: string, query?: string, province?: string, offset?: number, limit?: number }` |
+| `oceanbase_get_team` | `{ groupId: number }` |
+| `oceanbase_analyze_cutoff` | `{ boardId: string, rank?: number, groupId?: number, province?: string }` |
+| `oceanbase_predict_score_time` | `{ boardId: string, submittedAt: string }` |
+
+查询榜单 ID 使用 `total`、`q600071` 等初赛赛题，以及 `playoff-combined` / `playoff-performance` / `playoff-prompt`。分页默认 `offset=0`、`limit=20`，最多 100 条，参数严格校验。队伍跨榜成绩按数字 `groupId` 关联；分数线按所选榜单或省份范围计算。
+
+预测 `boardId` 使用赛题 qID：初赛 `q600071` 等，加赛 `q600081`；三种加赛榜共用该赛题的 ETA 模型，总榜不提供 ETA。发现工具返回 `predictionBoardId`。暂无样本时显示“暂无出分样本”（`insufficient_data`），至少 3 条有效提交 / 出分样本且数据状态就绪后，返回预计出分时刻与 80% 区间。
+
+结果含 `fetchedAt`、数据年龄、`stale` 和告警，响应顶层 `checkedAt` 表示检查时间。超过 120 秒或抓取时间未知时标记为 `stale`。空榜、队伍未找到、上游错误与样本准备情况分别通过业务状态说明。
+
+地址选择、完整元数据、三种客户端配置及官方来源见 [MCP 接入](mcp.md)。
 
 ## 上游接口与踩过的坑
 
@@ -53,4 +75,4 @@ Bun 本地服务与 Cloudflare Worker 共用同一套 Hono 路由（`src/server/
 - 加赛有晋级名额，取前 50 名；页面「晋级形势」按当前第 50 名分数做临时晋级线分析，官方榜单页面展示前 80 名（含并列），最终以官方规则为准。
 - `playoff/entry.startsAt` 当前返回 15:00，但官方提测实际从 12:00 开始；页面状态、倒计时和赛程按 12:00 展示。
 - 加赛榜接口在 Worker 边缘缓存 30 秒（stale 120 秒），页面每 30 秒轮询一次，避免开赛后高频请求打满免费额度。
-- 官方前端目前只使用 `rows[].submittedAt`（成绩提交时间），没有展示评测开始/完成时间；但开赛前 rows 为空，不能据此断定上游不返回这些字段。开赛后需抓原始 row 核对；若包含评测时间，再接入真实耗时/ETA。
+- 加赛 ETA 已按赛题 `q600081` 接入：`submittedAt` 为提交时间，规范化字段 `evaluatedAt` 为评测完成时间（毫秒），按上游 `evaluatedAt` / `completedAt` / `updatedAt` 的顺序解析。三种分榜共用该赛题的样本模型；暂无出分样本时返回 `insufficient_data`，1–2 条样本时显示“出分样本不足 3 条”，样本齐备后给出预计出分时刻与 80% 区间。

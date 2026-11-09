@@ -3,6 +3,7 @@ import { fmtTime, timeAgo } from '../../shared/format.ts';
 import { useNow } from '../lib/hooks.ts';
 import { useLive } from '../lib/live.tsx';
 import { Logo } from './Logo.tsx';
+import { McpNavLink } from './McpNavLink.tsx';
 import { cx } from './ui.tsx';
 
 export function Header() {
@@ -67,6 +68,7 @@ export function Header() {
         </nav>
 
         <div className="ml-auto flex items-center gap-2 sm:gap-3">
+          <McpNavLink />
           <div
             className="flex shrink-0 items-center gap-2 rounded-full border border-slate-200 bg-white px-2.5 py-1 text-xs whitespace-nowrap dark:border-slate-700 dark:bg-slate-900"
             title={hint}

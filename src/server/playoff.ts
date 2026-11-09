@@ -40,14 +40,16 @@ const num = (v: unknown): number | null => {
 
 const str = (v: unknown) => (typeof v === 'string' ? v.trim() : '');
 
-/** 上游 submittedAt 可能是毫秒数、数字字符串或 ISO 字符串 */
+/** 上游时间为正毫秒数、数字字符串或明确时区的 ISO 字符串，不转换秒时间戳。 */
 const ts = (v: unknown): number | null => {
-  if (v == null || v === '') return null;
-  if (typeof v === 'number') return Number.isFinite(v) ? v : null;
-  const n = Number(v);
-  if (Number.isFinite(n)) return n;
-  const parsed = Date.parse(String(v));
-  return Number.isFinite(parsed) ? parsed : null;
+  if (typeof v !== 'number' && typeof v !== 'string') return null;
+  const text = typeof v === 'string' ? v.trim() : null;
+  let n: number;
+  if (typeof v === 'number') n = v;
+  else if (text && /^\d+(?:\.\d+)?$/.test(text)) n = Number(text);
+  else if (text && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})$/i.test(text)) n = Date.parse(text);
+  else return null;
+  return Number.isFinite(n) && n > 0 && n <= 8.64e15 ? n : null;
 };
 
 export function normalizePlayoffRow(rec: any): PlayoffRow {
@@ -65,6 +67,8 @@ export function normalizePlayoffRow(rec: any): PlayoffRow {
     preliminaryScore: num(rec?.preliminaryScore),
     totalScore: num(rec?.totalScore),
     submittedAt: ts(rec?.submittedAt),
+    // 成绩记录的完成时间独立于提交时间；不使用榜单抓取时间补齐。
+    evaluatedAt: ts(rec?.evaluatedAt) ?? ts(rec?.completedAt) ?? ts(rec?.updatedAt),
   };
 }
 

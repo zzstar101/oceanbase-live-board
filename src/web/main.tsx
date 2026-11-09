@@ -3,7 +3,6 @@ import { RouterProvider } from '@tanstack/react-router';
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { hit } from './lib/api.ts';
-import { LiveProvider } from './lib/live.tsx';
 import { router } from './router.tsx';
 
 const queryClient = new QueryClient({
@@ -18,9 +17,7 @@ if (import.meta.hot) import.meta.hot.data.root = root;
 root.render(
   <StrictMode>
     <QueryClientProvider client={queryClient}>
-      <LiveProvider>
-        <RouterProvider router={router} />
-      </LiveProvider>
+      <RouterProvider router={router} />
     </QueryClientProvider>
   </StrictMode>,
 );

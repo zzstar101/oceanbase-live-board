@@ -9,6 +9,8 @@ import { contentDisposition, csvFilename, rowsToCsv } from './csv.ts';
 import { isPlayoffBoardKey, getPlayoffEntry, getPlayoffInfo, getPlayoffLeaderboard } from './playoff.ts';
 import { clampDays, parseHit, type HitContext } from './visits.ts';
 import { errMsg, getBoard, getConfig, getSnapshot, parseBoardId } from './upstream.ts';
+import { handleMcpRequest } from './mcp.ts';
+import { defaultMcpDataSource, type McpDataSource } from './mcp-tools.ts';
 
 export interface StatsBackend {
   hit(evt: HitEvent, ctx: HitContext): Promise<void>;
@@ -24,6 +26,8 @@ export interface ApiOptions<E extends Env> {
   /** 访问统计后端；不配置则 /api/hit 静默丢弃、/api/stats 404 */
   stats?: (c: Context<E>) => { backend: StatsBackend; key: string; ctx: HitContext } | null;
   online?: (c: Context<E>) => Promise<OnlineInfo>;
+  /** MCP read-only source override (also useful for deterministic protocol tests). */
+  mcpSource?: McpDataSource;
 }
 
 export const isForce = (c: Context) => c.req.query('force') === '1' || c.req.query('refresh') === '1';
@@ -45,11 +49,15 @@ export function createApi<E extends Env = Env>(opts: ApiOptions<E>) {
   const api = new Hono<E>().basePath('/api');
 
   // GitHub Pages 站点跨域调用 Worker 的 API
-  api.use('*', cors({ origin: '*', allowMethods: ['GET', 'POST', 'OPTIONS'], allowHeaders: ['content-type', 'authorization'], maxAge: 86400 }));
+  api.use('*', cors({ origin: '*', allowMethods: ['GET', 'POST', 'OPTIONS'], allowHeaders: ['content-type', 'authorization', 'mcp-protocol-version', 'mcp-session-id', 'mcp-method', 'mcp-name', 'last-event-id'], exposeHeaders: ['mcp-session-id', 'mcp-protocol-version'], maxAge: 86400 }));
   api.use('*', async (c, next) => {
     await next();
     if (!c.res.headers.has('Cache-Control')) c.res.headers.set('Cache-Control', 'no-store');
   });
+
+  // MCP uses the same upstream caches, but needs atomic cache timestamps and
+  // groupId-only enrichment; legacy push snapshots cannot guarantee either.
+  api.all('/mcp', (c) => handleMcpRequest(c.req.raw, opts.mcpSource ?? defaultMcpDataSource));
 
   api.get('/health', (c) =>
     c.json<HealthInfo>({

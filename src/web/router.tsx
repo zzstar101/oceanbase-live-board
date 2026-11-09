@@ -1,9 +1,11 @@
 // TanStack Router（代码式路由）：页面状态全部放在 URL 搜索参数里，可分享、可前进后退
-import { createRootRoute, createRoute, createRouter, Outlet } from '@tanstack/react-router';
+import { createRootRoute, createRoute, createRouter, Outlet, useRouterState } from '@tanstack/react-router';
 import { BASEPATH } from './lib/config.ts';
 import { BoardPage } from './pages/BoardPage.tsx';
 import { PlayoffPage } from './pages/PlayoffPage.tsx';
 import { StatsPage } from './pages/StatsPage.tsx';
+import { McpPage } from './pages/McpPage.tsx';
+import { LiveProvider } from './lib/live.tsx';
 
 export const TABS = ['rank', 'dist', 'region', 'promo', 'timing'] as const;
 export type Tab = (typeof TABS)[number];
@@ -32,7 +34,13 @@ export interface PlayoffSearch {
 
 const str = (v: unknown) => (typeof v === 'string' && v.trim() ? v.trim().slice(0, 80) : undefined);
 
-const rootRoute = createRootRoute({ component: Outlet });
+function AppLayout() {
+  const isMcp = useRouterState({ select: (state) => state.matches.some((match) => match.routeId === '/mcp') });
+  // Documentation must not open a snapshot query or WebSocket, including direct /mcp loads.
+  return isMcp ? <Outlet /> : <LiveProvider><Outlet /></LiveProvider>;
+}
+
+const rootRoute = createRootRoute({ component: AppLayout });
 
 export const boardRoute = createRoute({
   getParentRoute: () => rootRoute,
@@ -74,8 +82,14 @@ export const statsRoute = createRoute({
   component: StatsPage,
 });
 
+export const mcpRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/mcp',
+  component: McpPage,
+});
+
 export const router = createRouter({
-  routeTree: rootRoute.addChildren([boardRoute, playoffRoute, statsRoute]),
+  routeTree: rootRoute.addChildren([boardRoute, playoffRoute, statsRoute, mcpRoute]),
   basepath: BASEPATH,
   defaultPreload: false,
   scrollRestoration: true,
