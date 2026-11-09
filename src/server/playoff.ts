@@ -28,6 +28,8 @@ import { cached, errMsg, getConfig, getJson } from './upstream.ts';
 const BOARD_KEYS: PlayoffBoardKey[] = ['combined', 'performance', 'prompt'];
 /** 官方页面 pageSize=20，但 combined 在 20 时不稳定；100 足够装下任何一榜的前 100 名 */
 const PAGE_SIZE = 100;
+/** 加赛榜短缓存：页面 30 秒轮询，缓存 30 秒，避免开赛后每个页面每 15 秒直接打上游。 */
+const PLAYOFF_TTL_MS = 30_000;
 
 const num = (v: unknown): number | null => {
   if (v == null || v === '') return null;
@@ -190,7 +192,7 @@ export async function getPlayoffLeaderboard(
     const c = await cached(
       `playoff:board:${questionId}:${board}`,
       () => fetchPlayoffLeaderboard(questionId, board),
-      force ? 0 : getConfig().ttlMs,
+      force ? 0 : PLAYOFF_TTL_MS,
     );
     return { ...c.value, error: c.error, stale: c.stale, at: c.at };
   } catch (err) {

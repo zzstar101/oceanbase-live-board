@@ -10,6 +10,18 @@ export interface PlayoffTeamMeta {
   province: string;
 }
 
+/**
+ * 官方提测实际从 2026-11-09 12:00 开始。
+ * playoff/entry 的 startsAt 目前返回 15:00（疑似评测/展示时间），
+ * 页面上的状态、倒计时和赛程都以提测时间为准。
+ */
+export const PLAYOFF_SUBMISSION_START_AT = Date.parse('2026-11-09T12:00:00+08:00');
+
+export function playoffStartsAt(entry: { startsAt: number } | null | undefined): number {
+  const upstream = entry?.startsAt ?? 0;
+  return upstream > 0 ? Math.min(upstream, PLAYOFF_SUBMISSION_START_AT) : PLAYOFF_SUBMISSION_START_AT;
+}
+
 /** 官方榜单里的名次字段；缺失时由行号兜底（1-based） */
 export function playoffRank(r: PlayoffRow, board: PlayoffBoardKey): number | null {
   if (board === 'combined') return r.combinedRank;
@@ -51,7 +63,7 @@ export function playoffRowToRow(
 /** groupId → 初赛队伍资料。总榜优先；后面的榜只补空字段。 */
 export function buildPlayoffTeamMeta(boards: Board[]): Map<number, PlayoffTeamMeta> {
   const out = new Map<number, PlayoffTeamMeta>();
-  const ordered = boards.toSorted((a, b) => Number(b.kind === 'total') - Number(a.kind === 'total'));
+  const ordered = boards.slice().sort((a, b) => Number(b.kind === 'total') - Number(a.kind === 'total'));
   for (const board of ordered) {
     for (const row of board.rows) {
       if (row.groupId == null) continue;

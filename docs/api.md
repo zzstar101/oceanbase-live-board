@@ -51,4 +51,6 @@ Bun 本地服务与 Cloudflare Worker 共用同一套 Hono 路由（`src/server/
 - `submissionOptions` 返回 `submissionType=CODE`、`evaluationMode=STANDARD_PULL`、`resultFormat=PLAYOFF`、`maxScore=80`、`repoSlot=gitUrlPlus`，即「提交 Git 仓库地址，平台自动拉取评测」。
 - `participation` 需要登录态，因此公开站点只能展示榜单和提测配置，不能展示「我的提测记录」。
 - 加赛有晋级名额，取前 50 名；页面「晋级形势」按当前第 50 名分数做临时晋级线分析，官方榜单页面展示前 80 名（含并列），最终以官方规则为准。
+- `playoff/entry.startsAt` 当前返回 15:00，但官方提测实际从 12:00 开始；页面状态、倒计时和赛程按 12:00 展示。
+- 加赛榜接口在 Worker 边缘缓存 30 秒（stale 120 秒），页面每 30 秒轮询一次，避免开赛后高频请求打满免费额度。
 - 官方前端目前只使用 `rows[].submittedAt`（成绩提交时间），没有展示评测开始/完成时间；但开赛前 rows 为空，不能据此断定上游不返回这些字段。开赛后需抓原始 row 核对；若包含评测时间，再接入真实耗时/ETA。

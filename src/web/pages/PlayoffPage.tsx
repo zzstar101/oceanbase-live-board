@@ -4,7 +4,7 @@
 import { useNavigate } from '@tanstack/react-router';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { fmtScore, fmtTime, timeAgo } from '../../shared/format.ts';
-import { buildPlayoffTeamMeta, playoffRowToRow } from '../../shared/playoff.ts';
+import { buildPlayoffTeamMeta, playoffRowToRow, playoffStartsAt } from '../../shared/playoff.ts';
 import type { Board, PlayoffBoardKey, PlayoffInfo, PlayoffLeaderboard, Snapshot } from '../../shared/types.ts';
 import { Footer } from '../components/Footer.tsx';
 import { Header } from '../components/Header.tsx';
@@ -50,6 +50,8 @@ const BOARDS: {
     digits: 2,
   },
 ];
+
+const REFRESH_MS = 30_000;
 
 const PHASE: Record<string, { label: string; tone: 'slate' | 'green' | 'amber' | 'red' | 'brand' }> = {
   UPCOMING: { label: '未开始', tone: 'amber' },
@@ -139,13 +141,14 @@ export function PlayoffPage() {
   useEffect(() => {
     setLoading(true);
     void loadBoards();
-    const id = setInterval(() => void loadBoards(), 15_000);
+    const id = setInterval(() => void loadBoards(), REFRESH_MS);
     return () => clearInterval(id);
   }, [loadBoards]);
 
   const entry = info?.entry;
-  // 上游 phase 可能滞后，开赛/结束状态以时间戳为准。
-  const phaseKey = !entry ? '' : now < entry.startsAt ? 'UPCOMING' : now < entry.endsAt ? 'RUNNING' : 'ENDED';
+  // 上游 phase 可能滞后；startsAt 目前也会返回 15:00，按官方提测时间 12:00 修正。
+  const startsAt = entry ? playoffStartsAt(entry) : 0;
+  const phaseKey = !entry ? '' : now < startsAt ? 'UPCOMING' : now < entry.endsAt ? 'RUNNING' : 'ENDED';
   const phase = PHASE[phaseKey] ?? { label: entry?.phase || '—', tone: 'slate' as const };
 
   // 初赛快照只用于补学校/省份/导师；加赛接口本身不返回这些字段。
@@ -156,7 +159,8 @@ export function PlayoffPage() {
         const data = boards[def.key];
         const rows = (data?.rows ?? [])
           .map((r, i) => playoffRowToRow(r, def.key, i, r.groupId != null ? teamMeta.get(r.groupId) : null))
-          .toSorted((a, b) => a.rank - b.rank || (b.score ?? -1) - (a.score ?? -1));
+          .slice()
+          .sort((a, b) => a.rank - b.rank || (b.score ?? -1) - (a.score ?? -1));
         return {
           id: `playoff-${def.key}`,
           title: def.title,
@@ -213,10 +217,10 @@ export function PlayoffPage() {
 
   const progress = useMemo(() => {
     if (!entry) return { label: '', value: '' };
-    if (now < entry.startsAt) return { label: '距加赛开始', value: fmtCountdown(entry.startsAt - now) };
+    if (now < startsAt) return { label: '距加赛开始', value: fmtCountdown(startsAt - now) };
     if (now < entry.endsAt) return { label: '距加赛结束', value: fmtCountdown(entry.endsAt - now) };
     return { label: '比赛状态', value: '已结束' };
-  }, [entry, now]);
+  }, [entry, startsAt, now]);
 
   const kpis = (
     <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
@@ -231,7 +235,7 @@ export function PlayoffPage() {
       <Stat
         label="数据更新"
         value={boards[board]?.at ? timeAgo(boards[board]!.at!, now) : '—'}
-        sub={boards[board]?.stale ? '上游异常 · 显示上次数据' : '每 15 秒自动刷新'}
+        sub={boards[board]?.stale ? '上游异常 · 显示上次数据' : '每 30 秒自动刷新'}
       />
     </div>
   );
@@ -292,7 +296,7 @@ export function PlayoffPage() {
                     <Pill tone={phase.tone}>{phase.label}</Pill>
                   </div>
                   <span className="text-[13px] text-slate-500 dark:text-slate-400">
-                    {entry ? `${fmtTime(entry.startsAt)} 至 ${fmtTime(entry.endsAt)} · 北京时间` : '读取赛程中…'}
+                    {entry ? `${fmtTime(startsAt)} 至 ${fmtTime(entry.endsAt)} · 北京时间` : '读取赛程中…'}
                   </span>
                   {progress.value && (
                     <span className="text-[13px] text-slate-500 dark:text-slate-400">

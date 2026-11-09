@@ -1,7 +1,7 @@
 // 加赛：上游归一化、缓存兜底、Hono 路由
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import { createApi } from '../src/server/app.ts';
-import { buildPlayoffTeamMeta, playoffRowToRow } from '../src/shared/playoff.ts';
+import { buildPlayoffTeamMeta, playoffRowToRow, playoffStartsAt } from '../src/shared/playoff.ts';
 import type { Board } from '../src/shared/types.ts';
 import {
   getPlayoffInfo,
@@ -95,6 +95,13 @@ describe('normalizePlayoffRow', () => {
       submittedAt: Date.parse('2026-11-09T06:30:00.000+00:00'),
     });
     expect(normalizePlayoffRow({ groupId: 9 }).groupName).toBe('队伍 #9');
+  });
+});
+
+describe('playoffStartsAt', () => {
+  test('上游 startsAt 返回 15:00 时，按官方提测 12:00 展示', () => {
+    expect(playoffStartsAt({ startsAt: 1794207600000 })).toBe(1794196800000);
+    expect(playoffStartsAt({ startsAt: 1794196800000 })).toBe(1794196800000);
   });
 });
 

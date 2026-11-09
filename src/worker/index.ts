@@ -2,8 +2,9 @@
 //
 // 为什么需要这一层：浏览器带 Origin 直接打 openwebapi.oceanbase.com 会被网关 403，
 // 所以由 Worker 在边缘抓取，页面只请求同源 /api/*。
-// 缓存三层：isolate 内 TTL（upstream.ts）+ 边缘 Cache API（12 秒新鲜 / 5 分钟内先回旧数据后台刷新）
+// 缓存三层：isolate 内 TTL（upstream.ts）+ 边缘 Cache API（默认 12 秒新鲜 / 5 分钟内先回旧数据后台刷新）
 //          + BoardHub 里最近一次推送的快照（有浏览器在线时每 15 秒刷新）。
+// 加赛榜额外用 30 秒边缘缓存 + 30 秒 isolate 缓存，页面也改成 30 秒轮询，避免开赛后打爆额度。
 import { DurableObject } from 'cloudflare:workers';
 import { Hono, type MiddlewareHandler } from 'hono';
 import type { HitContext } from '../server/visits.ts';
@@ -150,49 +151,51 @@ export class BoardStats extends DurableObject<Env> {
 
 // ================================================================== 边缘缓存（stale-while-revalidate）
 // 上游一次抓全量要 3~11 秒，直接等会以为页面卡死：过期 5 分钟内先给旧数据、后台再刷。
-const edgeCache: MiddlewareHandler<HonoEnv> = async (c, next) => {
-  if (c.req.method !== 'GET') return next();
-  const u = new URL(c.req.url);
-  // 老版本 BoardHub 可能还在推送「加赛题混进普通赛道」的快照；REST 快照先绕过它，
-  // 同时用版本号隔离旧边缘缓存，避免部署后仍看到 q600081 空榜。
-  u.searchParams.delete('force');
-  u.searchParams.delete('refresh');
-  u.searchParams.set('_v', CACHE_VERSION);
-  u.searchParams.sort();
-  const key = new Request(u.toString(), { method: 'GET' });
-  const cache = caches.default;
+const edgeCache =
+  (ttlSeconds = TTL_SECONDS, staleSeconds = STALE_SECONDS): MiddlewareHandler<HonoEnv> =>
+  async (c, next) => {
+    if (c.req.method !== 'GET') return next();
+    const u = new URL(c.req.url);
+    // 老版本 BoardHub 可能还在推送「加赛题混进普通赛道」的快照；REST 快照先绕过它，
+    // 同时用版本号隔离旧边缘缓存，避免部署后仍看到 q600081 空榜。
+    u.searchParams.delete('force');
+    u.searchParams.delete('refresh');
+    u.searchParams.set('_v', CACHE_VERSION);
+    u.searchParams.sort();
+    const key = new Request(u.toString(), { method: 'GET' });
+    const cache = caches.default;
 
-  if (!isForce(c)) {
-    const hit = await cache.match(key);
-    if (hit) {
-      const age = Math.round((Date.now() - Number(hit.headers.get('x-data-at') || 0)) / 1000);
-      if (age < STALE_SECONDS) {
-        if (age >= TTL_SECONDS) {
-          const refreshUrl = new URL(u);
-          refreshUrl.searchParams.set('force', '1');
-          c.executionCtx.waitUntil(
-            Promise.resolve(app.fetch(new Request(refreshUrl, { headers: c.req.raw.headers }), c.env, c.executionCtx))
-              .then(() => undefined, () => undefined),
-          );
+    if (!isForce(c)) {
+      const hit = await cache.match(key);
+      if (hit) {
+        const age = Math.round((Date.now() - Number(hit.headers.get('x-data-at') || 0)) / 1000);
+        if (age < staleSeconds) {
+          if (age >= ttlSeconds) {
+            const refreshUrl = new URL(u);
+            refreshUrl.searchParams.set('force', '1');
+            c.executionCtx.waitUntil(
+              Promise.resolve(app.fetch(new Request(refreshUrl, { headers: c.req.raw.headers }), c.env, c.executionCtx))
+                .then(() => undefined, () => undefined),
+            );
+          }
+          const res = new Response(hit.body, hit);
+          res.headers.set('X-Cache', age < ttlSeconds ? 'HIT' : 'STALE');
+          res.headers.set('X-Data-Age', String(age));
+          res.headers.set('Cache-Control', 'no-store');
+          res.headers.delete('x-data-at');
+          return res;
         }
-        const res = new Response(hit.body, hit);
-        res.headers.set('X-Cache', age < TTL_SECONDS ? 'HIT' : 'STALE');
-        res.headers.set('X-Data-Age', String(age));
-        res.headers.set('Cache-Control', 'no-store');
-        res.headers.delete('x-data-at');
-        return res;
       }
     }
-  }
 
-  await next();
-  if (c.res.status === 200) {
-    const copy = new Response(c.res.clone().body, c.res);
-    copy.headers.set('x-data-at', String(Date.now()));
-    copy.headers.set('Cache-Control', `public, max-age=${STALE_SECONDS}`);
-    c.executionCtx.waitUntil(cache.put(key, copy));
-    c.res.headers.set('X-Cache', isForce(c) ? 'BYPASS' : 'MISS');
-  }
+    await next();
+    if (c.res.status === 200) {
+      const copy = new Response(c.res.clone().body, c.res);
+      copy.headers.set('x-data-at', String(Date.now()));
+      copy.headers.set('Cache-Control', `public, max-age=${staleSeconds}`);
+      c.executionCtx.waitUntil(cache.put(key, copy));
+      c.res.headers.set('X-Cache', isForce(c) ? 'BYPASS' : 'MISS');
+    }
 };
 
 // ================================================================== 路由
@@ -226,8 +229,11 @@ app.use('*', async (c, next) => {
 app.get('/api/stream', (c) => hubOf(c.env).fetch(c.req.raw));
 // 快照直接走边缘缓存 + 新代码抓取；不再信任 BoardHub 里可能由旧代码生成的持久化快照。
 // WebSocket 推送仍由 BoardHub 负责（客户端会过滤掉旧的加赛题空榜）。
-app.get('/api/snapshot', edgeCache);
-app.get('/api/board/:id', edgeCache);
+app.get('/api/snapshot', edgeCache());
+app.get('/api/board/:id', edgeCache());
+// 加赛榜：30 秒边缘缓存，120 秒内先回旧数据后台刷新；页面同样是 30 秒轮询。
+app.get('/api/playoff/leaderboard', edgeCache(30, 120));
+app.get('/api/playoff', edgeCache(30, 120));
 app.route('/', api);
 
 // 其余请求交给静态资源（wrangler assets；SPA 路由由 not_found_handling 回 index.html）
