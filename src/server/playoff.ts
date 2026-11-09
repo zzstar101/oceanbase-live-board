@@ -13,6 +13,7 @@
 //   * combined 榜用 pageSize=20 会间歇性 500「加赛榜分页参数无效」，pageSize=100 稳定；
 //     带 rankLimit 也会触发同样的错误，所以这里统一 pageSize=100、不带 rankLimit。
 //   * participation 接口需要登录 cookie（401），公开站点拿不到「我的提测记录」。
+import { playoffStartsAt } from '../shared/playoff.ts';
 import type {
   PlayoffBoardKey,
   PlayoffEntry,
@@ -91,7 +92,7 @@ export function normalizePlayoffEntry(rec: any): PlayoffEntry {
     campId: Number(rec?.campId ?? getConfig().campId),
     questionId: Number(rec?.questionId ?? 0),
     questionName: str(rec?.questionName) || '加赛题',
-    startsAt: ts(rec?.startsAt) ?? 0,
+    startsAt: playoffStartsAt({ startsAt: ts(rec?.startsAt) ?? 0 }),
     endsAt: ts(rec?.endsAt) ?? 0,
     phase: str(rec?.phase) || 'UNKNOWN',
   };
