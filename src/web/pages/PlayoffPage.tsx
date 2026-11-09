@@ -301,6 +301,14 @@ export function PlayoffPage() {
                     </span>
                   )}
                   <div className="ml-auto flex items-center gap-2">
+                    <a
+                      className="btn"
+                      href="https://open.oceanbase.com/train/detail/21?questionId=600081"
+                      target="_blank"
+                      rel="noreferrer"
+                    >
+                      赛题说明 ↗
+                    </a>
                     <a className="btn" href="https://open.oceanbase.com/competition/playoff" target="_blank" rel="noreferrer">
                       官方页面 ↗
                     </a>
