@@ -2,11 +2,11 @@
 // 运行时差异（快照来源、推送、访问统计存储）通过 ApiOptions 注入。
 import { Hono, type Context, type Env } from 'hono';
 import { cors } from 'hono/cors';
-import { buildPlayoffTeamMeta, playoffRowToRow } from '../shared/playoff.ts';
+import { buildPlayoffTeamMeta, excludePlayoffTop50, mergePlayoffTeams, sortPlayoffTeams, type PlayoffSort, type PlayoffTeamRow } from '../shared/playoff.ts';
 import { filterByProvince } from '../shared/province.ts';
-import type { Board, HealthInfo, HitEvent, OnlineInfo, PlayoffBoardKey, Snapshot, StatsSummary } from '../shared/types.ts';
-import { contentDisposition, csvFilename, rowsToCsv } from './csv.ts';
-import { isPlayoffBoardKey, getPlayoffEntry, getPlayoffInfo, getPlayoffLeaderboard } from './playoff.ts';
+import type { Board, HealthInfo, HitEvent, OnlineInfo, Snapshot, StatsSummary } from '../shared/types.ts';
+import { contentDisposition, csvFilename, playoffTeamsToCsv, rowsToCsv } from './csv.ts';
+import { fetchAllPlayoffRows, isPlayoffBoardKey, getPlayoffEntry, getPlayoffInfo, getPlayoffLeaderboard } from './playoff.ts';
 import { clampDays, parseHit, type HitContext } from './visits.ts';
 import { errMsg, getBoard, getConfig, getSnapshot, parseBoardId } from './upstream.ts';
 import { handleMcpRequest } from './mcp.ts';
@@ -91,7 +91,7 @@ export function createApi<E extends Env = Env>(opts: ApiOptions<E>) {
   // 加赛首屏：入口 + 提测配置 + 题目介绍（600081）
   api.get('/playoff', async (c) => c.json(await getPlayoffInfo({ force: isForce(c) })));
 
-  // 加赛榜：?board=combined|performance|prompt[&questionId=600081]
+  // 加赛榜：?board=combined|performance|prompt&pageNo=1&pageSize=100[&questionId=600081]
   api.get('/playoff/leaderboard', async (c) => {
     const board = c.req.query('board') || 'combined';
     if (!isPlayoffBoardKey(board)) return c.json({ error: 'board must be "combined", "performance" or "prompt"' }, 400);
@@ -101,51 +101,59 @@ export function createApi<E extends Env = Env>(opts: ApiOptions<E>) {
       if (!entry) return c.json({ error: 'playoff entry unavailable' }, 502);
       questionId = String(entry.value.questionId);
     }
-    return c.json(await getPlayoffLeaderboard(questionId, board, { force: isForce(c) }));
+    const pageNo = Math.max(1, Math.min(10_000, Math.floor(Number(c.req.query('pageNo')) || 1)));
+    const pageSize = Math.max(1, Math.min(100, Math.floor(Number(c.req.query('pageSize')) || 100)));
+    return c.json(await getPlayoffLeaderboard(questionId, board, { force: isForce(c), pageNo, pageSize }));
   });
 
-  // 加赛榜 CSV：?board=combined|performance|prompt&province=...
-  // 加赛行本身不带学校/省份，先按 groupId 从初赛快照补齐，再走同一套 rowsToCsv。
+  // 加赛合并 CSV：?sort=combined|performance|prompt&province=...
+  // 一支队伍一行，含两个子题全部字段；服务端拉完所有分页，不是只导当前已加载的 100 行。
   api.get('/playoff/export.csv', async (c) => {
-    const raw = c.req.query('board') || 'combined';
-    if (!isPlayoffBoardKey(raw)) return c.json({ error: 'board must be "combined", "performance" or "prompt"' }, 400);
+    const raw = c.req.query('sort') || c.req.query('board') || 'combined';
+    if (!isPlayoffBoardKey(raw)) return c.json({ error: 'sort must be "combined", "performance" or "prompt"' }, 400);
+    const sort: PlayoffSort = raw;
     let questionId = c.req.query('questionId');
     if (!questionId) {
       const entry = await getPlayoffEntry().catch(() => null);
       if (!entry) return c.json({ error: 'playoff entry unavailable' }, 502);
       questionId = String(entry.value.questionId);
     }
-    const [leaderboard, initial] = await Promise.all([
-      getPlayoffLeaderboard(questionId, raw, { force: isForce(c) }),
-      getSnapshot({ force: isForce(c) }).catch(() => null),
-    ]);
-    if (leaderboard.error) return c.json({ error: leaderboard.error }, 502);
-    const meta = buildPlayoffTeamMeta(initial?.boards ?? []);
-    const allRows = leaderboard.rows.map((r, i) =>
-      playoffRowToRow(r, raw, i, r.groupId != null ? meta.get(r.groupId) : null),
-    );
-    const province = c.req.query('province') || '';
-    const rows = filterByProvince(allRows, province);
-    const titles: Record<PlayoffBoardKey, string> = {
-      combined: '加赛总榜',
-      performance: '性能榜',
-      prompt: 'Agent Prompt 榜',
-    };
-    const board: Board = {
-      id: `playoff-${raw}`,
-      title: titles[raw],
-      kind: raw === 'combined' ? 'total' : 'track',
-      questionId: Number(questionId),
-      rows,
-      error: null,
-      stale: false,
-      reportedTotal: leaderboard.total,
-      source: 'https://open.oceanbase.com/competition/playoff',
-    };
-    return c.body(rowsToCsv(rows), 200, {
-      'Content-Type': 'text/csv; charset=utf-8',
-      'Content-Disposition': contentDisposition(csvFilename(board, province)),
-    });
+    try {
+      const [combined, performance, prompt, initial] = await Promise.all([
+        fetchAllPlayoffRows(questionId, 'combined', { force: isForce(c) }),
+        fetchAllPlayoffRows(questionId, 'performance', { force: isForce(c) }),
+        fetchAllPlayoffRows(questionId, 'prompt', { force: isForce(c) }),
+        getSnapshot({ force: isForce(c) }).catch(() => null),
+      ]);
+      const meta = buildPlayoffTeamMeta(initial?.boards ?? []);
+      // 初赛前 50 名直接晋级决赛，不参加加赛；合并榜和导出同样剔除。
+      const mergedAll: PlayoffTeamRow[] = mergePlayoffTeams({ combined, performance, prompt }, meta);
+      const merged = excludePlayoffTop50(mergedAll, initial?.boards);
+      const province = c.req.query('province') || '';
+      const rows = sortPlayoffTeams(filterByProvince(merged, province), sort);
+      const titles: Record<PlayoffSort, string> = {
+        combined: '加赛总榜',
+        performance: '性能榜',
+        prompt: 'Agent Prompt 榜',
+      };
+      const board: Board = {
+        id: `playoff-${sort}`,
+        title: titles[sort],
+        kind: 'total',
+        questionId: Number(questionId),
+        rows: [],
+        error: null,
+        stale: false,
+        reportedTotal: combined.total,
+        source: 'https://open.oceanbase.com/competition/playoff',
+      };
+      return c.body(playoffTeamsToCsv(rows), 200, {
+        'Content-Type': 'text/csv; charset=utf-8',
+        'Content-Disposition': contentDisposition(csvFilename(board, province)),
+      });
+    } catch (err) {
+      return c.json({ error: errMsg(err) }, 502);
+    }
   });
 
   // ?board=total|q600071  &province=四川省|__none__

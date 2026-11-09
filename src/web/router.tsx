@@ -1,5 +1,6 @@
 // TanStack Router（代码式路由）：页面状态全部放在 URL 搜索参数里，可分享、可前进后退
 import { createRootRoute, createRoute, createRouter, Outlet, useRouterState } from '@tanstack/react-router';
+import type { PlayoffSort } from '../shared/playoff.ts';
 import { BASEPATH } from './lib/config.ts';
 import { BoardPage } from './pages/BoardPage.tsx';
 import { PlayoffPage } from './pages/PlayoffPage.tsx';
@@ -23,12 +24,14 @@ export interface BoardSearch {
 }
 
 export interface PlayoffSearch {
-  /** 加赛榜：combined | performance | prompt */
+  /** 排序维度：综合（默认）| 性能 | Prompt */
+  sort?: Exclude<PlayoffSort, 'combined'>;
+  /** 旧链接兼容；新页面用 sort */
   board?: 'performance' | 'prompt';
   province?: string;
   q?: string;
   tab?: Tab;
-  /** 打开详情抽屉的队伍 rowKey */
+  /** 打开详情抽屉的队伍 key */
   team?: string;
 }
 
@@ -65,8 +68,9 @@ export const playoffRoute = createRoute({
   validateSearch: (s: Record<string, unknown>): PlayoffSearch => {
     const playoffTabs = ['rank', 'dist', 'region', 'promo', 'timing'] as const;
     const tab = playoffTabs.includes(s.tab as (typeof playoffTabs)[number]) ? (s.tab as (typeof playoffTabs)[number]) : undefined;
+    const sort = s.sort === 'performance' || s.sort === 'prompt' ? s.sort : s.board === 'performance' || s.board === 'prompt' ? s.board : undefined;
     return {
-      board: s.board === 'performance' || s.board === 'prompt' ? s.board : undefined,
+      sort,
       province: str(s.province),
       q: str(s.q),
       tab: tab && tab !== 'rank' ? tab : undefined,

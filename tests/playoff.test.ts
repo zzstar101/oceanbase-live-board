@@ -1,8 +1,19 @@
 // 加赛：上游归一化、缓存兜底、Hono 路由
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import { createApi } from '../src/server/app.ts';
-import { buildPlayoffTeamMeta, playoffRowToRow, playoffRowToTimingRow, playoffStartsAt } from '../src/shared/playoff.ts';
-import type { Board } from '../src/shared/types.ts';
+import {
+  buildPlayoffTeamMeta,
+  excludePlayoffTop50,
+  mergePlayoffTeams,
+  playoffRowToRow,
+  playoffRowToTimingRow,
+  playoffStartsAt,
+  playoffTop50Keys,
+  searchPlayoffTeams,
+  sortPlayoffTeams,
+  type PlayoffTeamRow,
+} from '../src/shared/playoff.ts';
+import type { Board, PlayoffLeaderboard, PlayoffRow } from '../src/shared/types.ts';
 import {
   getPlayoffInfo,
   getPlayoffLeaderboard,
@@ -259,12 +270,118 @@ describe('Hono playoff routes', () => {
     expect(res.status).toBe(400);
   });
 
-  test('/api/playoff/export.csv 导出当前榜', async () => {
-    const res = await app.request('/api/playoff/export.csv?board=performance');
+  test('/api/playoff/export.csv 导出一题两子题合并榜', async () => {
+    const res = await app.request('/api/playoff/export.csv?sort=performance');
     expect(res.status).toBe(200);
     expect(res.headers.get('content-type')).toContain('text/csv');
     const text = await res.text();
-    expect(text).toContain('rank,name,school');
+    expect(text).toContain('combinedRank,team,school,advisor,province,performance,performanceRank,performancePoints,promptRawScore');
     expect(text).toContain('队A');
   }, 10_000);
+});
+
+
+describe('加赛一题两子题合并', () => {
+  const row = (patch: Partial<PlayoffRow>): PlayoffRow => ({
+    groupId: null,
+    groupName: '队',
+    performance: null,
+    performancePoints: null,
+    performanceRank: null,
+    promptRawScore: null,
+    promptPoints: null,
+    promptRank: null,
+    combinedRank: null,
+    playoffScore: null,
+    preliminaryScore: null,
+    totalScore: null,
+    submittedAt: null,
+    evaluatedAt: null,
+    ...patch,
+  });
+  const board = (b: PlayoffLeaderboard['board'], rows: PlayoffRow[]): PlayoffLeaderboard => ({
+    board: b,
+    provisional: true,
+    activityCode: 1,
+    resultSequence: 1,
+    total: rows.length,
+    pageNo: 1,
+    pageSize: 100,
+    rows,
+    performanceTop: [],
+    promptTop: [],
+    error: null,
+    stale: false,
+    at: 1,
+  });
+
+  test('combined 先入、子榜补空、只出现在子榜的队伍也保留', () => {
+    const teams = mergePlayoffTeams(
+      {
+        combined: board('combined', [row({ groupId: 7, groupName: '队A', combinedRank: 1, totalScore: 670, submittedAt: 1000 })]),
+        performance: board('performance', [
+          row({ groupId: 7, groupName: '队A', performance: 0.99, performanceRank: 2, performancePoints: 39.5, evaluatedAt: 5000 }),
+          row({ groupId: 8, groupName: '队B', performance: 0.88, performanceRank: 9 }),
+        ]),
+        prompt: board('prompt', [row({ groupId: 7, groupName: '队A', promptRawScore: 88, promptRank: 3, promptPoints: 38 })]),
+      },
+      new Map([[7, { school: '浙江大学', advisor: '老师', province: '浙江省' }]]),
+    );
+    expect(teams).toHaveLength(2);
+    const a = teams.find((t) => t.groupId === 7)!;
+    expect(a).toMatchObject({ combinedRank: 1, totalScore: 670, performance: 0.99, performanceRank: 2, promptRawScore: 88, promptRank: 3, school: '浙江大学', province: '浙江省' });
+    expect(a.submittedAt).toBe(1000);
+    expect(a.evaluatedAt).toBe(5000);
+    expect(teams.find((t) => t.groupId === 8)?.name).toBe('队B');
+  });
+
+  test('排序：官方名次优先，缺维度固定沉底；搜索空格全命中', () => {
+    const teams: PlayoffTeamRow[] = [
+      { key: 'g1', groupId: 1, name: '甲队', school: '浙江大学', advisor: '张老师', province: '浙江省', performance: 0.9, performancePoints: 40, performanceRank: 2, promptRawScore: 90, promptPoints: 39, promptRank: 1, combinedRank: 3, playoffScore: 70, preliminaryScore: 600, totalScore: 670, submittedAt: 1, evaluatedAt: null },
+      { key: 'g2', groupId: 2, name: '乙队', school: '清华大学', advisor: '李老师', province: '北京市', performance: 0.99, performancePoints: 40, performanceRank: 1, promptRawScore: null, promptPoints: null, promptRank: null, combinedRank: 1, playoffScore: 80, preliminaryScore: 610, totalScore: 690, submittedAt: 2, evaluatedAt: null },
+      { key: 'g3', groupId: 3, name: '丙队', school: '北京大学', advisor: '王老师', province: '北京市', performance: null, performancePoints: null, performanceRank: null, promptRawScore: 80, promptPoints: 37, promptRank: 3, combinedRank: null, playoffScore: null, preliminaryScore: 590, totalScore: null, submittedAt: 3, evaluatedAt: null },
+    ];
+    expect(sortPlayoffTeams(teams, 'performance').map((t) => t.name)).toEqual(['乙队', '甲队', '丙队']);
+    expect(sortPlayoffTeams(teams, 'prompt').map((t) => t.name)).toEqual(['甲队', '丙队', '乙队']);
+    expect(searchPlayoffTeams(teams, '浙江 张')).toHaveLength(1);
+    expect(searchPlayoffTeams(teams, '北京')).toHaveLength(2);
+  });
+
+  test('初赛总榜前 50 名从加赛合并行中剔除', () => {
+    const rows = Array.from({ length: 51 }, (_, i) => ({
+      rank: 1, // 上游没有官方名次字段；同分并列时页面 rank 均为 1，必须按上游顺序截前 50。
+      name: `队${i + 1}`,
+      school: '',
+      advisor: '',
+      province: '',
+      score: 620,
+      rawScore: null,
+      bestSubmit: null,
+      updated: null,
+      userId: null,
+      groupId: i + 1,
+      recordId: null,
+    }));
+    const initial = [
+      {
+        id: 'total',
+        title: '总榜',
+        kind: 'total' as const,
+        questionId: null,
+        error: null,
+        stale: false,
+        reportedTotal: 51,
+        source: '',
+        rows,
+      },
+    ] as Board[];
+    expect(playoffTop50Keys(initial).size).toBe(50);
+    expect(playoffTop50Keys(initial).has('g1')).toBe(true);
+    expect(playoffTop50Keys(initial).has('g51')).toBe(false);
+    const teams = [
+      { key: 'g1', groupId: 1, name: '队1' },
+      { key: 'g51', groupId: 51, name: '队51' },
+    ] as PlayoffTeamRow[];
+    expect(excludePlayoffTop50(teams, initial).map((t) => t.name)).toEqual(['队51']);
+  });
 });

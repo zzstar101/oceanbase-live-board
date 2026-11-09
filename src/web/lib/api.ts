@@ -1,3 +1,4 @@
+import type { PlayoffSort } from '../../shared/playoff.ts';
 import type { HitEvent, PlayoffBoardKey, PlayoffInfo, PlayoffLeaderboard, Snapshot, StatsSummary } from '../../shared/types.ts';
 import { API_BASE, IS_LOCAL, MODE, STATIC_SNAPSHOT_URL } from './config.ts';
 
@@ -55,9 +56,9 @@ export function csvUrl(boardId: string, province: string) {
   return `${API_BASE}/api/export.csv?${u}`;
 }
 
-/** 加赛榜 CSV：服务端用初赛快照补齐学校/省份后再导出 */
-export function playoffCsvUrl(board: PlayoffBoardKey, province: string) {
-  const u = new URLSearchParams({ board });
+/** 加赛合并 CSV：服务端拉完整分页、补齐学校/省份后导出；sort 决定行顺序。 */
+export function playoffCsvUrl(sort: PlayoffSort, province: string) {
+  const u = new URLSearchParams({ sort });
   if (province) u.set('province', province);
   return `${API_BASE}/api/playoff/export.csv?${u}`;
 }
@@ -72,9 +73,9 @@ export function fetchPlayoffInfo(force = false) {
   return getJson<PlayoffInfo>(`${API_BASE}/api/playoff${force ? '?force=1' : ''}`, { cache: 'no-store' });
 }
 
-/** 加赛榜（combined | performance | prompt）；questionId 省略时由服务端从入口取 */
-export function fetchPlayoffBoard(board: PlayoffBoardKey, questionId?: number) {
-  const q = new URLSearchParams({ board });
+/** 加赛榜（combined | performance | prompt）；questionId 省略时由服务端从入口取。 */
+export function fetchPlayoffBoard(board: PlayoffBoardKey, questionId?: number, pageNo = 1, pageSize = 100) {
+  const q = new URLSearchParams({ board, pageNo: String(pageNo), pageSize: String(pageSize) });
   if (questionId) q.set('questionId', String(questionId));
   return getJson<PlayoffLeaderboard>(`${API_BASE}/api/playoff/leaderboard?${q}`, { cache: 'no-store' });
 }

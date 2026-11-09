@@ -82,6 +82,8 @@ export function LeaderTable({
   scoreDigits,
   scoreHeader,
   footerNote,
+  footerPrefix,
+  timeHeader,
 }: {
   board: Board;
   rows: Row[];
@@ -92,6 +94,8 @@ export function LeaderTable({
   scoreDigits?: number;
   scoreHeader?: string;
   footerNote?: string;
+  footerPrefix?: string;
+  timeHeader?: string;
 }) {
   const { isStarred } = useStars();
   const changes = useRecentChanges(board.id);
@@ -200,7 +204,7 @@ export function LeaderTable({
       }),
       col.accessor((r) => undef(toMs(r.updated)), {
         id: 'updated',
-        header: isTrack ? '出分时间' : '更新时间',
+        header: timeHeader ?? (isTrack ? '出分时间' : '更新时间'),
         sortFn: 'basic',
         sortUndefined: 'last',
         sortDescFirst: true,
@@ -221,7 +225,7 @@ export function LeaderTable({
         meta: { className: 'hidden sm:table-cell text-right w-[10.5rem]' },
       }),
     ]),
-    [changes, isStarred, local, words, isTrack, scoreDigits, scoreHeader],
+    [changes, isStarred, local, words, isTrack, scoreDigits, scoreHeader, timeHeader],
   );
 
   const table = useTable({
@@ -294,7 +298,7 @@ export function LeaderTable({
         </tbody>
       </table>
       <p className="px-4 py-3 text-xs text-slate-400">
-        点击任意一行查看该队在所有赛道的成绩。名次按成绩排序、同分并列；{province ? '「省内」为筛选后的名次；' : ''}
+        {footerPrefix ?? '点击任意一行查看该队在所有赛道的成绩。名次按成绩排序、同分并列；'}{province ? '「省内」为筛选后的名次；' : ''}
         {footerNote ?? (board.kind === 'track' ? '耗时 = 最优那次提交从提交到出分的时间。' : '总分 = 各赛道最好成绩之和。')}
       </p>
     </div>

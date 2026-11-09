@@ -15,11 +15,13 @@ export function ScoreDist({
   rows,
   province,
   onOpen,
+  digits = 3,
 }: {
   board: Board;
   rows: Row[];
   province: string;
   onOpen: (key: string) => void;
+  digits?: number;
 }) {
   const { stars } = useStars();
   const [binN, setBinN] = useState(12);
@@ -58,7 +60,7 @@ export function ScoreDist({
         <div className="text-sm text-slate-600 dark:text-slate-300">
           {province ? provinceLabel(province) : board.title} · 有成绩 <b className="num">{scored.length}</b> 队 · 分数区间{' '}
           <span className="num">
-            {fmtScore(hist.min)} ~ {fmtScore(hist.max)}
+            {fmtScore(hist.min, digits)} ~ {fmtScore(hist.max, digits)}
           </span>
         </div>
         <label className="flex items-center gap-2 text-xs text-slate-500">
@@ -87,7 +89,7 @@ export function ScoreDist({
                 role="listitem"
                 onClick={() => setPicked(picked === i ? null : i)}
                 className="group relative flex h-full min-w-0 flex-1 flex-col justify-end"
-                title={`${b.point ? fmtScore(b.lo) : `${fmtScore(b.lo)} ~ ${fmtScore(b.hi)}`}：${b.count} 队`}
+                title={`${b.point ? fmtScore(b.lo, digits) : `${fmtScore(b.lo, digits)} ~ ${fmtScore(b.hi, digits)}`}：${b.count} 队`}
               >
                 {cs && (
                   <span className="pointer-events-none absolute inset-x-0 top-0 bottom-0 border-l-2 border-dashed border-rose-400/70">
@@ -112,7 +114,7 @@ export function ScoreDist({
         </div>
         <div className="mt-1 flex gap-1">
           {hist.bins.map((b, i) => (
-            <span key={i} className="num min-w-0 flex-1 truncate text-center text-[10px] text-slate-400" title={fmtScore(b.lo)}>
+            <span key={i} className="num min-w-0 flex-1 truncate text-center text-[10px] text-slate-400" title={fmtScore(b.lo, digits)}>
               {b.point ? fmtScoreShort(b.lo) : i % Math.ceil(hist.bins.length / 8) === 0 ? fmtScoreShort(b.lo) : ''}
             </span>
           ))}
@@ -126,7 +128,7 @@ export function ScoreDist({
         <div className="rounded-lg border border-brand-200 bg-brand-50/50 p-3 dark:border-brand-500/30 dark:bg-brand-500/5">
           <div className="mb-2 flex items-center justify-between text-sm">
             <b>
-              {pickedBin.point ? `${fmtScore(pickedBin.lo)} 分` : `${fmtScore(pickedBin.lo)} ~ ${fmtScore(pickedBin.hi)}`} · {pickedRows.length} 队
+              {pickedBin.point ? `${fmtScore(pickedBin.lo, digits)} 分` : `${fmtScore(pickedBin.lo, digits)} ~ ${fmtScore(pickedBin.hi, digits)}`} · {pickedRows.length} 队
             </b>
             <button type="button" className="text-xs text-slate-500 hover:text-slate-800" onClick={() => setPicked(null)}>
               收起 ✕
@@ -142,7 +144,7 @@ export function ScoreDist({
                 >
                   <RankBadge rank={r.rank} />
                   <span className="min-w-0 flex-1 truncate">{r.name}</span>
-                  <span className="num text-xs text-slate-500">{fmtScore(r.score)}</span>
+                  <span className="num text-xs text-slate-500">{fmtScore(r.score, digits)}</span>
                 </button>
               </li>
             ))}
@@ -167,7 +169,7 @@ export function ScoreDist({
                 return (
                   <tr key={c.n} className="border-t border-slate-100 dark:border-slate-800">
                     <td className="py-1.5">{c.n === 1 ? '第 1 名' : `前 ${c.n} 名`}</td>
-                    <td className="num py-1.5 text-right font-medium">{fmtScore(c.score)}</td>
+                    <td className="num py-1.5 text-right font-medium">{fmtScore(c.score, digits)}</td>
                     <td className="num py-1.5 text-right text-slate-500">{n == null ? '—' : fmtInt(n)}</td>
                   </tr>
                 );
@@ -194,7 +196,7 @@ export function ScoreDist({
                       <span className="min-w-0 flex-1 truncate font-medium">{r.name}</span>
                       {t ? (
                         <span className="text-xs text-slate-500">
-                          进前 {t.targetRank} 还差 <b className="num text-rose-500">{fmtScore(t.gap)}</b> 分
+                          进前 {t.targetRank} 还差 <b className="num text-rose-500">{fmtScore(t.gap, digits)}</b> 分
                         </span>
                       ) : (
                         <span className="text-xs text-emerald-600">已是第 1 档</span>

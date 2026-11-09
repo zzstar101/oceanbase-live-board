@@ -28,7 +28,7 @@ import { cached, errMsg, getConfig, getJson } from './upstream.ts';
 
 const BOARD_KEYS: PlayoffBoardKey[] = ['combined', 'performance', 'prompt'];
 /** 官方页面 pageSize=20，但 combined 在 20 时不稳定；100 足够装下任何一榜的前 100 名 */
-const PAGE_SIZE = 100;
+export const PLAYOFF_PAGE_SIZE = 100;
 /** 加赛榜短缓存：页面 30 秒轮询，缓存 30 秒，避免开赛后每个页面每 15 秒直接打上游。 */
 const PLAYOFF_TTL_MS = 30_000;
 
@@ -111,7 +111,7 @@ export function normalizePlayoffLeaderboard(board: PlayoffBoardKey, rec: any): P
     resultSequence: num(rec?.resultSequence),
     total: num(rec?.total) ?? rows.length,
     pageNo: num(rec?.pageNo) ?? 1,
-    pageSize: num(rec?.pageSize) ?? PAGE_SIZE,
+    pageSize: num(rec?.pageSize) ?? PLAYOFF_PAGE_SIZE,
     rows,
     performanceTop: Array.isArray(rec?.performanceTop) ? rec.performanceTop.map(normalizePlayoffRow) : [],
     promptTop: Array.isArray(rec?.promptTop) ? rec.promptTop.map(normalizePlayoffRow) : [],
@@ -130,12 +130,17 @@ export async function fetchPlayoffEntry(campId = getConfig().campId): Promise<Pl
   return normalizePlayoffEntry(await getJson('/testplatform/playoff/entry', { campId }));
 }
 
-export async function fetchPlayoffLeaderboard(questionId: number | string, board: PlayoffBoardKey): Promise<PlayoffLeaderboard> {
+export async function fetchPlayoffLeaderboard(
+  questionId: number | string,
+  board: PlayoffBoardKey,
+  pageNo = 1,
+  pageSize = PLAYOFF_PAGE_SIZE,
+): Promise<PlayoffLeaderboard> {
   const data = await getJson('/testplatform/playoff/leaderboard', {
     questionId,
     board,
-    pageNo: 1,
-    pageSize: PAGE_SIZE,
+    pageNo,
+    pageSize,
   });
   return normalizePlayoffLeaderboard(board, data);
 }
@@ -172,14 +177,20 @@ export const getPlayoffSubmission = (questionId: number | string, { force = fals
 export const getPlayoffQuestion = (questionId: number | string, { force = false } = {}) =>
   cached(`playoff:question:${questionId}`, () => fetchPlayoffQuestion(questionId), force ? 0 : 60_000);
 
-const emptyLeaderboard = (board: PlayoffBoardKey, error: string | null, stale = false): PlayoffLeaderboard => ({
+const emptyLeaderboard = (
+  board: PlayoffBoardKey,
+  error: string | null,
+  pageNo = 1,
+  pageSize = PLAYOFF_PAGE_SIZE,
+  stale = false,
+): PlayoffLeaderboard => ({
   board,
   provisional: true,
   activityCode: null,
   resultSequence: null,
   total: 0,
-  pageNo: 1,
-  pageSize: PAGE_SIZE,
+  pageNo,
+  pageSize,
   rows: [],
   performanceTop: [],
   promptTop: [],
@@ -191,18 +202,41 @@ const emptyLeaderboard = (board: PlayoffBoardKey, error: string | null, stale = 
 export async function getPlayoffLeaderboard(
   questionId: number | string,
   board: PlayoffBoardKey,
-  { force = false } = {},
+  { force = false, pageNo = 1, pageSize = PLAYOFF_PAGE_SIZE } = {},
 ): Promise<PlayoffLeaderboard> {
   try {
     const c = await cached(
-      `playoff:board:${questionId}:${board}`,
-      () => fetchPlayoffLeaderboard(questionId, board),
+      `playoff:board:${questionId}:${board}:${pageNo}:${pageSize}`,
+      () => fetchPlayoffLeaderboard(questionId, board, pageNo, pageSize),
       force ? 0 : PLAYOFF_TTL_MS,
     );
     return { ...c.value, error: c.error, stale: c.stale, at: c.at };
   } catch (err) {
-    return emptyLeaderboard(board, errMsg(err));
+    return emptyLeaderboard(board, errMsg(err), pageNo, pageSize);
   }
+}
+
+/**
+ * CSV 全量导出用：按 total 拉完一个榜的所有分页。
+ * 任何一页失败都抛错，避免用户下载到“看起来完整、其实缺页”的 CSV。
+ */
+export async function fetchAllPlayoffRows(
+  questionId: number | string,
+  board: PlayoffBoardKey,
+  { force = false } = {},
+): Promise<PlayoffLeaderboard> {
+  const first = await getPlayoffLeaderboard(questionId, board, { force, pageNo: 1 });
+  if (first.error) throw new Error(first.error);
+  const pageSize = first.pageSize || PLAYOFF_PAGE_SIZE;
+  const pageCount = Math.max(1, Math.ceil(first.total / pageSize));
+  if (pageCount > 50) throw new Error(`榜单分页过多（${pageCount} 页），请稍后重试`);
+  const rows = [...first.rows];
+  for (let pageNo = 2; pageNo <= pageCount; pageNo++) {
+    const next = await getPlayoffLeaderboard(questionId, board, { force, pageNo, pageSize });
+    if (next.error) throw new Error(next.error);
+    rows.push(...next.rows);
+  }
+  return { ...first, rows, total: first.total, pageSize };
 }
 
 /** 加赛页首屏：入口 + 提测配置 + 题目介绍。任何一块失败都不影响其它块。 */

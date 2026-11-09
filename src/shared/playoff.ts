@@ -2,7 +2,8 @@
 //
 // 加赛接口只给队名/分数，不带学校、省份、导师；这些字段从初赛快照按 groupId 补齐，
 // 这样 /playoff 可以直接复用初赛榜的筛选、省份地图、学校统计、CSV 和队伍详情。
-import type { Board, PlayoffBoardKey, PlayoffRow, Row } from './types.ts';
+import { rowKey } from './insights.ts';
+import type { Board, PlayoffBoardKey, PlayoffLeaderboard, PlayoffRow, Row } from './types.ts';
 
 export interface PlayoffTeamMeta {
   school: string;
@@ -90,4 +91,186 @@ export function buildPlayoffTeamMeta(boards: Board[]): Map<number, PlayoffTeamMe
     }
   }
   return out;
+}
+
+// ---------------------------------------------------------------- 一题两子题：合并模型
+
+/** 加赛排序维度：综合（总分）/ 性能 / Prompt。和官方三个 leaderboard 的 key 一致。 */
+export type PlayoffSort = PlayoffBoardKey;
+
+/**
+ * 一支队伍在加赛页上的一行。
+ * combined / performance / prompt 三个接口按 groupId 合并，所有子题字段同屏展示；
+ * 只在一个子榜出现的队伍也保留，缺失字段为 null。
+ */
+export interface PlayoffTeamRow {
+  key: string;
+  groupId: number | null;
+  name: string;
+  school: string;
+  advisor: string;
+  province: string;
+  performance: number | null;
+  performancePoints: number | null;
+  performanceRank: number | null;
+  promptRawScore: number | null;
+  promptPoints: number | null;
+  promptRank: number | null;
+  combinedRank: number | null;
+  playoffScore: number | null;
+  preliminaryScore: number | null;
+  totalScore: number | null;
+  /** 成绩提交时间（毫秒） */
+  submittedAt: number | null;
+  /** 上游成绩完成/更新时间（毫秒）；没有就为 null */
+  evaluatedAt: number | null;
+}
+
+export function playoffTeamKey(r: Pick<PlayoffTeamRow, 'groupId' | 'name'>): string {
+  return r.groupId != null ? `g${r.groupId}` : `n${r.name}`;
+}
+
+const emptyTeam = (r: PlayoffRow, meta?: PlayoffTeamMeta | null): PlayoffTeamRow => ({
+  key: playoffTeamKey({ groupId: r.groupId, name: r.groupName }),
+  groupId: r.groupId,
+  name: r.groupName,
+  school: meta?.school ?? '',
+  advisor: meta?.advisor ?? '',
+  province: meta?.province ?? '',
+  performance: r.performance,
+  performancePoints: r.performancePoints,
+  performanceRank: r.performanceRank,
+  promptRawScore: r.promptRawScore,
+  promptPoints: r.promptPoints,
+  promptRank: r.promptRank,
+  combinedRank: r.combinedRank,
+  playoffScore: r.playoffScore,
+  preliminaryScore: r.preliminaryScore,
+  totalScore: r.totalScore,
+  submittedAt: r.submittedAt,
+  evaluatedAt: r.evaluatedAt ?? null,
+});
+
+/** 把同一个 groupId 的三榜行补齐；后到的榜只填空字段。 */
+function fillTeam(t: PlayoffTeamRow, r: PlayoffRow) {
+  t.name ||= r.groupName;
+  t.performance ??= r.performance;
+  t.performancePoints ??= r.performancePoints;
+  t.performanceRank ??= r.performanceRank;
+  t.promptRawScore ??= r.promptRawScore;
+  t.promptPoints ??= r.promptPoints;
+  t.promptRank ??= r.promptRank;
+  t.combinedRank ??= r.combinedRank;
+  t.playoffScore ??= r.playoffScore;
+  t.preliminaryScore ??= r.preliminaryScore;
+  t.totalScore ??= r.totalScore;
+  if (r.submittedAt != null && (t.submittedAt == null || r.submittedAt < t.submittedAt)) t.submittedAt = r.submittedAt;
+  if (r.evaluatedAt != null && (t.evaluatedAt == null || r.evaluatedAt > t.evaluatedAt)) t.evaluatedAt = r.evaluatedAt;
+}
+
+/**
+ * 三榜合并。combined 先入，performance/prompt 补空；只出现在子榜的队伍也会保留。
+ * meta 用初赛快照按 groupId 补学校/省份/导师。
+ */
+export function mergePlayoffTeams(
+  boards: Partial<Record<PlayoffBoardKey, PlayoffLeaderboard>>,
+  meta?: Map<number, PlayoffTeamMeta> | null,
+): PlayoffTeamRow[] {
+  const out = new Map<string, PlayoffTeamRow>();
+  for (const board of ['combined', 'performance', 'prompt'] as const) {
+    for (const row of boards[board]?.rows ?? []) {
+      const key = playoffTeamKey({ groupId: row.groupId, name: row.groupName });
+      const prev = out.get(key);
+      if (prev) {
+        fillTeam(prev, row);
+      } else {
+        out.set(key, emptyTeam(row, row.groupId != null ? meta?.get(row.groupId) : null));
+      }
+    }
+  }
+  for (const t of out.values()) {
+    const m = t.groupId != null ? meta?.get(t.groupId) : null;
+    if (m) {
+      t.school ||= m.school;
+      t.advisor ||= m.advisor;
+      t.province ||= m.province;
+    }
+  }
+  return Array.from(out.values());
+}
+
+export function playoffSortRank(r: PlayoffTeamRow, sort: PlayoffSort): number | null {
+  if (sort === 'combined') return r.combinedRank;
+  if (sort === 'performance') return r.performanceRank;
+  return r.promptRank;
+}
+
+/** 当前排序维度的分数：综合用总分（初赛分 + 加赛综合分），性能用 E，Prompt 用原始分。 */
+export function playoffSortScore(r: PlayoffTeamRow, sort: PlayoffSort): number | null {
+  if (sort === 'combined') return r.totalScore;
+  if (sort === 'performance') return r.performance;
+  return r.promptRawScore;
+}
+
+/** 按官方名次排序；缺该维度成绩的队伍固定排最后，再按分数降序。 */
+export function sortPlayoffTeams(rows: PlayoffTeamRow[], sort: PlayoffSort): PlayoffTeamRow[] {
+  return rows.slice().sort((a, b) => {
+    const ar = playoffSortRank(a, sort);
+    const br = playoffSortRank(b, sort);
+    if (ar == null && br == null) {
+      return (playoffSortScore(b, sort) ?? -Infinity) - (playoffSortScore(a, sort) ?? -Infinity) || a.name.localeCompare(b.name, 'zh-CN');
+    }
+    if (ar == null) return 1;
+    if (br == null) return -1;
+    return ar - br || (playoffSortScore(b, sort) ?? -Infinity) - (playoffSortScore(a, sort) ?? -Infinity) || a.name.localeCompare(b.name, 'zh-CN');
+  });
+}
+
+export function searchPlayoffTeams(rows: PlayoffTeamRow[], q: string | undefined): PlayoffTeamRow[] {
+  const words = (q || '').toLowerCase().split(/\s+/).filter(Boolean);
+  if (!words.length) return rows;
+  return rows.filter((r) => {
+    const hay = `${r.name}\n${r.school}\n${r.advisor}\n${r.province}`.toLowerCase();
+    return words.every((w) => hay.includes(w));
+  });
+}
+
+/** 合并行 → 初赛 Row，仅供省份/学校/地图/关注等复用组件读取。 */
+export function playoffTeamToRow(t: PlayoffTeamRow, index = 0): Row {
+  const score = t.totalScore;
+  return {
+    rank: t.combinedRank ?? index + 1,
+    name: t.name,
+    school: t.school,
+    advisor: t.advisor,
+    province: t.province,
+    score,
+    rawScore: score == null ? null : Math.round(score * 1000),
+    bestSubmit: t.submittedAt == null ? null : new Date(t.submittedAt).toISOString(),
+    updated: t.evaluatedAt == null ? null : new Date(t.evaluatedAt).toISOString(),
+    userId: null,
+    groupId: t.groupId,
+    recordId: null,
+  };
+}
+
+/** 关注组件只认 Row；用合并行构造一个稳定 key（groupId 优先）。 */
+export function playoffTeamStarRow(t: PlayoffTeamRow): Row {
+  return playoffTeamToRow(t);
+}
+
+/** 初赛总榜前 50 名直接晋级决赛，不参加加赛；返回这些队伍在合并模型里的 key。 */
+export function playoffTop50Keys(boards: Board[] | null | undefined): Set<string> {
+  const keys = new Set<string>();
+  const total = boards?.find((b) => b.kind === 'total');
+  // 上游没有官方名次字段，页面 rank 由分数并列生成；英雄榜前 50 取上游顺序的前 50 条。
+  // 不能用 rank <= 50：同一分数可能有很多并列队伍（实际有 250 支并列第 1）。
+  for (const row of (total?.rows ?? []).slice(0, 50)) keys.add(rowKey(row));
+  return keys;
+}
+
+/** 从加赛合并行中剔除初赛前 50 名。 */
+export function excludePlayoffTop50(teams: PlayoffTeamRow[], boards: Board[] | null | undefined): PlayoffTeamRow[] {
+  const keys = playoffTop50Keys(boards);
+  return keys.size ? teams.filter((t) => !keys.has(t.key)) : teams;
 }
