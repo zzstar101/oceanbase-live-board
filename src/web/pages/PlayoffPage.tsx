@@ -9,6 +9,7 @@ import type { Board, PlayoffBoardKey, PlayoffInfo, PlayoffLeaderboard, Snapshot 
 import { Footer } from '../components/Footer.tsx';
 import { Header } from '../components/Header.tsx';
 import { LeaderboardView, type LeaderboardTab } from '../components/LeaderboardView.tsx';
+import { PlayoffStandingPanel, PlayoffTimingPanel } from '../components/PlayoffPanels.tsx';
 import { StarPrompt } from '../components/StarPrompt.tsx';
 import { Card, Pill, Stat } from '../components/ui.tsx';
 import { fetchPlayoffBoard, fetchPlayoffInfo, playoffCsvUrl } from '../lib/api.ts';
@@ -203,6 +204,13 @@ export function PlayoffPage() {
     [navigate],
   );
 
+  const openTeam = useCallback(
+    (key: string) => {
+      void navigate({ search: (prev: PlayoffSearch) => ({ ...prev, team: key }), replace: false });
+    },
+    [navigate],
+  );
+
   const progress = useMemo(() => {
     if (!entry) return { label: '', value: '' };
     if (now < entry.startsAt) return { label: '距加赛开始', value: fmtCountdown(entry.startsAt - now) };
@@ -232,6 +240,8 @@ export function PlayoffPage() {
     { id: 'rank', label: '排行榜', show: true },
     { id: 'dist', label: '分数分布', show: true },
     { id: 'region', label: '省份与学校', show: true },
+    { id: 'promo', label: '晋级形势', show: true },
+    { id: 'timing', label: '出分耗时与预测', show: true },
   ];
 
   return (
@@ -256,6 +266,10 @@ export function PlayoffPage() {
             onSearch={setSearch}
             onPickBoard={setBoard}
             tabs={tabs}
+            panels={{
+              promo: <PlayoffStandingPanel board={activeBoard} province={search.province || ''} digits={activeDef.digits} onOpen={openTeam} />,
+              timing: <PlayoffTimingPanel board={activeBoard} digits={activeDef.digits} onOpen={openTeam} />,
+            }}
             totalLabel="加赛总榜"
             kpis={kpis}
             csvHref={playoffCsvUrl(board, search.province || '')}

@@ -55,7 +55,7 @@ export const playoffRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/playoff',
   validateSearch: (s: Record<string, unknown>): PlayoffSearch => {
-    const playoffTabs = ['rank', 'dist', 'region'] as const;
+    const playoffTabs = ['rank', 'dist', 'region', 'promo', 'timing'] as const;
     const tab = playoffTabs.includes(s.tab as (typeof playoffTabs)[number]) ? (s.tab as (typeof playoffTabs)[number]) : undefined;
     return {
       board: s.board === 'performance' || s.board === 'prompt' ? s.board : undefined,

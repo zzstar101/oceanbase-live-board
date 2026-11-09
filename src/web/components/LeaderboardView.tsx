@@ -57,6 +57,7 @@ export function LeaderboardView({
   scoreHeader,
   footerNote,
   totalLabel,
+  panels,
 }: {
   snap: Snapshot;
   boards: Board[];
@@ -73,6 +74,8 @@ export function LeaderboardView({
   footerNote?: string;
   /** 总榜 chip 文案；加赛页用「加赛总榜」 */
   totalLabel?: string;
+  /** 加赛等场景可替换默认的「晋级形势」「出分耗时与预测」面板 */
+  panels?: { promo?: ReactNode; timing?: ReactNode };
 }) {
   const province = search.province || '';
   const allTabs = tabs ?? defaultTabs(board);
@@ -172,8 +175,8 @@ export function LeaderboardView({
                 onSchool={(s) => onSearch({ q: s, tab: undefined })}
               />
             )}
-            {tab === 'promo' && <PromotionPanel snap={snap} province={province} onOpen={openTeam} />}
-            {tab === 'timing' && board.kind === 'track' && <TimingPanel board={board} />}
+            {tab === 'promo' && (panels?.promo ?? <PromotionPanel snap={snap} province={province} onOpen={openTeam} />)}
+            {tab === 'timing' && (panels?.timing ?? (board.kind === 'track' && <TimingPanel board={board} />))}
           </div>
         </section>
 
