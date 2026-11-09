@@ -33,7 +33,7 @@ export function McpPage({ endpoint = MCP_ENDPOINT }: { endpoint?: string }) {
     <div className="min-h-dvh">
       <title>MCP 接入 · OceanBase 榜单实时看板</title>
       <meta name="description" content="把 OceanBase 公开榜单接入 Claude Code、Codex 或 Cursor。只读、免 API Key 的 Streamable HTTP MCP。" />
-      <a href="#mcp-main" className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-50 focus:rounded-lg focus:bg-white focus:p-3 focus:text-brand-700">跳到接入说明</a>
+      <a href={`${typeof location !== 'undefined' ? location.pathname : `${BASEPATH.replace(/\/$/, '')}/mcp`}#mcp-main`} className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-50 focus:rounded-lg focus:bg-white focus:p-3 focus:text-brand-700">跳到接入说明</a>
       <header className="border-b border-slate-200/80 bg-white/85 dark:border-slate-800 dark:bg-[#0b0f17]/85">
         <div className="mx-auto flex h-14 max-w-6xl items-center justify-between gap-3 px-4 sm:px-6">
           <a href={BASEPATH} className="flex min-w-0 items-center gap-2.5">

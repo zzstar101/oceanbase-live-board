@@ -3,6 +3,7 @@
 // 页面运行时优先连 Cloudflare Worker（LIVE_ORIGIN）的实时接口 / 推送，失败才读 ./data/snapshot.json。
 import { cp, mkdir, rm } from 'node:fs/promises';
 import { buildClient } from './build.ts';
+import { renderPagesHtml } from './pages-html.ts';
 import { errMsg, getSnapshot } from '../src/server/upstream.ts';
 import type { Snapshot } from '../src/shared/types.ts';
 
@@ -16,10 +17,12 @@ await cp('dist/client', OUT, { recursive: true });
 // 标记静态模式（页面据此显示「静态快照」并改用 LIVE_ORIGIN）
 const htmlPath = `${OUT}/index.html`;
 const html = await Bun.file(htmlPath).text();
-const cfg = `<script>window.__BOARD_CONFIG__=${JSON.stringify({ mode: 'pages', liveOrigin: LIVE_ORIGIN })}</script>`;
-const patched = html.replace('</head>', `${cfg}</head>`);
+const patched = renderPagesHtml(html, LIVE_ORIGIN);
 await Bun.write(htmlPath, patched);
-// GitHub Pages 没有 SPA 回退：/stats 之类的路径靠 404.html 打开同一个页面
+// Keep the sharable docs URL a real static entry (200), not the SPA 404 fallback.
+await mkdir(`${OUT}/mcp`, { recursive: true });
+await Bun.write(`${OUT}/mcp/index.html`, renderPagesHtml(html, LIVE_ORIGIN, 1));
+// Other SPA routes keep the existing fallback.
 await Bun.write(`${OUT}/404.html`, patched);
 await Bun.write(`${OUT}/.nojekyll`, '');
 

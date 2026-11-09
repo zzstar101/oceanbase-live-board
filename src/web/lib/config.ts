@@ -17,9 +17,15 @@ export const API_BASE = MODE === 'pages' ? LIVE_ORIGIN : '';
 const host = typeof location !== 'undefined' ? location.hostname : '';
 export const IS_LOCAL = host === 'localhost' || host === '127.0.0.1' || host === '::1' || host.endsWith('.local');
 
-/** 路由 basepath：Pages 部署在 /<repo>/ 子路径下（页面路由只有一层，取当前目录即可） */
+/** Nested static entries declare a <base> so assets and routes share the project root. */
+export function resolvePagesBasepath(pageHref: string, documentBaseURI = pageHref): string {
+  return new URL('.', documentBaseURI).pathname.replace(/\/$/, '') || '/';
+}
+
 export const BASEPATH =
-  typeof location !== 'undefined' && MODE === 'pages' ? new URL('.', location.href).pathname.replace(/\/$/, '') || '/' : '/';
+  typeof location !== 'undefined' && MODE === 'pages'
+    ? resolvePagesBasepath(location.href, typeof document !== 'undefined' ? document.baseURI : location.href)
+    : '/';
 
 /** 静态快照地址（相对页面所在目录） */
 export const STATIC_SNAPSHOT_URL = MODE === 'pages' ? `${BASEPATH.replace(/\/$/, '')}/data/snapshot.json` : '';

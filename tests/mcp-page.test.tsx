@@ -53,6 +53,7 @@ describe('MCP documentation page', () => {
   test('renders standalone without a LiveProvider or QueryClient', () => {
     const html = renderToStaticMarkup(<McpPage endpoint="http://127.0.0.1:8791/api/mcp" />);
     expect(html).toContain('让 AI 帮你读榜');
+    expect(html).toContain('href="/mcp#mcp-main"');
     expect(html).toContain('http://127.0.0.1:8791/api/mcp');
     expect(html).toContain('Streamable HTTP');
     expect(html).toContain('免 API Key');
