@@ -26,6 +26,8 @@ type HonoEnv = { Bindings: Env };
 
 const TTL_SECONDS = 12;
 const STALE_SECONDS = 300;
+/** 快照结构/过滤规则变化时递增，避免旧边缘缓存继续下发过期榜单 */
+const CACHE_VERSION = '2';
 const PUSH_INTERVAL_MS = 15_000;
 /** 推送中枢的快照超过这个年龄就不再直接用（旧实现没检查：没人在线时 alarm 停了，/api/snapshot 会返回几天前的数据） */
 const HUB_MAX_AGE_MS = PUSH_INTERVAL_MS * 3;
@@ -151,8 +153,11 @@ export class BoardStats extends DurableObject<Env> {
 const edgeCache: MiddlewareHandler<HonoEnv> = async (c, next) => {
   if (c.req.method !== 'GET') return next();
   const u = new URL(c.req.url);
+  // 老版本 BoardHub 可能还在推送「加赛题混进普通赛道」的快照；REST 快照先绕过它，
+  // 同时用版本号隔离旧边缘缓存，避免部署后仍看到 q600081 空榜。
   u.searchParams.delete('force');
   u.searchParams.delete('refresh');
+  u.searchParams.set('_v', CACHE_VERSION);
   u.searchParams.sort();
   const key = new Request(u.toString(), { method: 'GET' });
   const cache = caches.default;
@@ -190,31 +195,6 @@ const edgeCache: MiddlewareHandler<HonoEnv> = async (c, next) => {
   }
 };
 
-// 推送中枢的快照足够新就直接用（已经 gzip 好了，原样下发）
-const hubSnapshot: MiddlewareHandler<HonoEnv> = async (c, next) => {
-  if (!isForce(c)) {
-    try {
-      const latest = await hubOf(c.env).latest();
-      if (latest && Date.now() - latest.at < HUB_MAX_AGE_MS) {
-        return new Response(latest.gz, {
-          encodeBody: 'manual',
-          headers: {
-            'Content-Type': 'application/json; charset=utf-8',
-            'Content-Encoding': 'gzip',
-            'Cache-Control': 'no-store',
-            'Access-Control-Allow-Origin': '*',
-            'X-Source': 'durable-object',
-            'X-Data-Age': String(Math.round((Date.now() - latest.at) / 1000)),
-          },
-        });
-      }
-    } catch (err) {
-      console.warn('[hub] latest failed:', errMsg(err));
-    }
-  }
-  return next();
-};
-
 // ================================================================== 路由
 const api = createApi<HonoEnv>({
   runtime: 'cloudflare-worker',
@@ -244,7 +224,9 @@ app.use('*', async (c, next) => {
 });
 
 app.get('/api/stream', (c) => hubOf(c.env).fetch(c.req.raw));
-app.get('/api/snapshot', hubSnapshot, edgeCache);
+// 快照直接走边缘缓存 + 新代码抓取；不再信任 BoardHub 里可能由旧代码生成的持久化快照。
+// WebSocket 推送仍由 BoardHub 负责（客户端会过滤掉旧的加赛题空榜）。
+app.get('/api/snapshot', edgeCache);
 app.get('/api/board/:id', edgeCache);
 app.route('/', api);
 

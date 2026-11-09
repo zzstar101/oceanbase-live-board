@@ -41,6 +41,12 @@ async function decodeFrame(data: ArrayBuffer | string): Promise<Snapshot> {
   return (await new Response(stream).json()) as Snapshot;
 }
 
+/** 旧版 BoardHub 可能仍在推送加赛题混进普通赛道的快照；页面侧兜底过滤。 */
+function withoutPlayoffBoard(snap: Snapshot): Snapshot {
+  const boards = snap.boards.filter((b) => b.questionId !== 600081);
+  return boards.length === snap.boards.length ? snap : { ...snap, boards };
+}
+
 export function LiveProvider({ children }: { children: ReactNode }) {
   const qc = useQueryClient();
   const [stream, setStream] = useState<StreamState>('off');
@@ -48,10 +54,11 @@ export function LiveProvider({ children }: { children: ReactNode }) {
 
   const query = useQuery({
     queryKey: QUERY_KEY,
-    queryFn: () => {
+    queryFn: async () => {
       const force = forceNext.current;
       forceNext.current = false;
-      return fetchSnapshot(force);
+      const res = await fetchSnapshot(force);
+      return { ...res, snap: withoutPlayoffBoard(res.snap) };
     },
     // 推送连着时轮询只做兜底；静态快照 CI 每 10 分钟才更新
     refetchInterval: (q) => (stream === 'open' || q.state.data?.source === 'static' ? 60_000 : 15_000),
@@ -82,7 +89,7 @@ export function LiveProvider({ children }: { children: ReactNode }) {
       };
       ws.onmessage = async (ev) => {
         try {
-          const snap = await decodeFrame(ev.data as ArrayBuffer | string);
+          const snap = withoutPlayoffBoard(await decodeFrame(ev.data as ArrayBuffer | string));
           // 丢弃比手上更旧的推送（例如服务端在无人在线期间留下的旧快照）
           const cur = qc.getQueryData<SnapshotResult>(QUERY_KEY);
           if (cur && Date.parse(snap.generatedAt) < Date.parse(cur.snap.generatedAt)) return;
