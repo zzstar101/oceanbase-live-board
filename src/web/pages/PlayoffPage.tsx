@@ -6,6 +6,7 @@ import { fmtScore, fmtTime, timeAgo } from '../../shared/format.ts';
 import {
   buildPlayoffTeamMeta,
   excludePlayoffTop50,
+  mergeInitialPlayoffTeams,
   mergePlayoffTeams,
   playoffSortRank,
   playoffSortScore,
@@ -235,7 +236,11 @@ export function PlayoffPage() {
   // 初赛前 50 名直接晋级决赛，不参加加赛；即使上游榜单误带，也在页面侧剔除。
   const initialTop50Keys = useMemo(() => playoffTop50Keys(initialSnap?.boards), [initialSnap]);
   const rawTeams = useMemo(() => mergePlayoffTeams(boards, teamMeta), [boards, teamMeta]);
-  const teams = useMemo(() => excludePlayoffTop50(rawTeams, initialSnap?.boards), [rawTeams, initialSnap]);
+  // 初赛 51 名起都有资格参与新增名额竞争；即使还没提测，也先以初赛分进入总榜。
+  const teams = useMemo(
+    () => excludePlayoffTop50(mergeInitialPlayoffTeams(rawTeams, initialSnap?.boards), initialSnap?.boards),
+    [rawTeams, initialSnap],
+  );
   const sorted = useMemo(() => sortPlayoffTeams(teams, sort), [teams, sort]);
   const provinceRows = useMemo(() => filterByProvince(sorted, search.province || ''), [sorted, search.province]);
   const shownRows = useMemo(() => searchPlayoffTeams(provinceRows, search.q), [provinceRows, search.q]);
@@ -310,10 +315,10 @@ export function PlayoffPage() {
     [navigate],
   );
   const selectedTeam = search.team ? teams.find((t) => t.key === search.team) ?? null : null;
+  const submittedCount = teams.filter((t) => t.combinedRank != null).length;
   const officialTotal = boards.combined?.total ?? 0;
-  const allLoaded = officialTotal > 0 ? pageNo * PAGE_SIZE >= officialTotal : true;
-  const excludedSeen = rawTeams.length - teams.length;
-  const total = allLoaded ? teams.length : Math.max(teams.length, officialTotal - excludedSeen);
+  const canLoadMore = officialTotal > 0 && pageNo * PAGE_SIZE < officialTotal;
+  const total = teams.length;
   const shown = shownRows.length;
 
   const tabs = [
@@ -326,9 +331,9 @@ export function PlayoffPage() {
 
   const kpis = (
     <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-      <Stat label="已出分队伍" value={total} sub={initialTop50Keys.size > 0 ? `已剔除初赛前 ${initialTop50Keys.size} 名` : boards.combined?.provisional ? '暂定榜单 · 随提测更新' : '已进入加赛榜'} tone="brand" />
+      <Stat label="总榜队伍" value={total} sub={`${initialTop50Keys.size > 0 ? `已剔除初赛前 ${initialTop50Keys.size} 名` : '已进入加赛榜'} · 已提交 ${submittedCount} 队`} tone="brand" />
       <Stat label="综合榜首" value={top?.name ?? '—'} sub={top ? `总分 ${fmtScore(top.totalScore, 2)}` : '暂无成绩'} />
-      <Stat label="综合第 50 名线" value={fmtScore(cutoff?.totalScore ?? null, 2)} sub="加赛前 50 名获新增名额" />
+      <Stat label="综合第 50 名线" value={fmtScore(cutoff?.totalScore ?? null, 2)} sub={submittedCount < 50 ? `已提交 ${submittedCount} 队，不足 50 队` : '加赛前 50 名获新增名额'} />
       <Stat label="数据更新" value={boards.combined?.at ? timeAgo(boards.combined.at, now) : '—'} sub={boards.combined?.stale ? '上游异常 · 上次数据' : '每 30 秒自动刷新'} />
     </div>
   );
@@ -360,7 +365,7 @@ export function PlayoffPage() {
                   </p>
                   {initialTop50Keys.size > 0 && (
                     <p className="mt-1 text-xs leading-relaxed text-slate-400 dark:text-slate-500">
-                      初赛前 {initialTop50Keys.size} 名已直接晋级决赛，不参加加赛，已从加赛榜与统计中剔除。
+                      初赛前 {initialTop50Keys.size} 名已直接晋级决赛，不参加加赛，已从加赛榜与统计中剔除；初赛第 51 名起的队伍已全部并入总榜，未提测时先按初赛分展示。
                     </p>
                   )}
                 </div>
@@ -421,7 +426,7 @@ export function PlayoffPage() {
                           timeHeader={teams.some((t) => t.evaluatedAt != null) ? '出分时间' : '提交时间'}
                           footerNote={sort === 'combined' ? '总分 = 初赛分 + 加赛综合分。' : sort === 'performance' ? '按性能子题名次排序，性能 E 保留 6 位小数。' : '按 Prompt 子题名次排序，Prompt 原始分保留 2 位小数。'}
                         />
-                        {teams.length < total && (
+                        {canLoadMore && (
                           <div className="mt-4 flex justify-center">
                             <button type="button" className="btn" disabled={loadingMore} onClick={() => void loadMore()}>{loadingMore ? '加载中…' : `加载更多（每次 ${PAGE_SIZE} 队）`}</button>
                           </div>

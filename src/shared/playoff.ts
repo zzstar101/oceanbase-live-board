@@ -217,6 +217,15 @@ export function sortPlayoffTeams(rows: PlayoffTeamRow[], sort: PlayoffSort): Pla
   return rows.slice().sort((a, b) => {
     const ar = playoffSortRank(a, sort);
     const br = playoffSortRank(b, sort);
+    if (sort === 'combined') {
+      // 已出分的队伍按官方综合名次在前；尚未提测的初赛队伍按初赛总分排在后面。
+      if (ar != null && br != null) {
+        return ar - br || (playoffSortScore(b, sort) ?? -Infinity) - (playoffSortScore(a, sort) ?? -Infinity) || a.name.localeCompare(b.name, 'zh-CN');
+      }
+      if (ar != null) return -1;
+      if (br != null) return 1;
+      return (playoffSortScore(b, sort) ?? -Infinity) - (playoffSortScore(a, sort) ?? -Infinity) || a.name.localeCompare(b.name, 'zh-CN');
+    }
     if (ar == null && br == null) {
       return (playoffSortScore(b, sort) ?? -Infinity) - (playoffSortScore(a, sort) ?? -Infinity) || a.name.localeCompare(b.name, 'zh-CN');
     }
@@ -267,6 +276,54 @@ export function playoffTop50Keys(boards: Board[] | null | undefined): Set<string
   // 不能用 rank <= 50：同一分数可能有很多并列队伍（实际有 250 支并列第 1）。
   for (const row of (total?.rows ?? []).slice(0, 50)) keys.add(rowKey(row));
   return keys;
+}
+
+/** 把初赛总榜第 51 名起的队伍并入加赛总榜；无加赛成绩时总分先按初赛分显示。 */
+export function mergeInitialPlayoffTeams(
+  teams: PlayoffTeamRow[],
+  boards: Board[] | null | undefined,
+): PlayoffTeamRow[] {
+  const total = boards?.find((b) => b.kind === 'total');
+  if (!total) return teams;
+  const top50 = playoffTop50Keys(boards);
+  const out = new Map(teams.map((t) => [t.key, t]));
+  for (const row of total.rows) {
+    const key = rowKey(row);
+    if (top50.has(key)) continue;
+    const prev = out.get(key);
+    if (prev) {
+      prev.school ||= row.school;
+      prev.advisor ||= row.advisor;
+      prev.province ||= row.province;
+      prev.name ||= row.name;
+      if (prev.preliminaryScore == null) prev.preliminaryScore = row.score;
+      if (prev.totalScore == null && prev.preliminaryScore != null) {
+        prev.totalScore = prev.preliminaryScore + (prev.playoffScore ?? 0);
+      }
+      continue;
+    }
+    out.set(key, {
+      key,
+      groupId: row.groupId,
+      name: row.name,
+      school: row.school,
+      advisor: row.advisor,
+      province: row.province,
+      performance: null,
+      performancePoints: null,
+      performanceRank: null,
+      promptRawScore: null,
+      promptPoints: null,
+      promptRank: null,
+      combinedRank: null,
+      playoffScore: null,
+      preliminaryScore: row.score,
+      totalScore: row.score,
+      submittedAt: null,
+      evaluatedAt: null,
+    });
+  }
+  return Array.from(out.values());
 }
 
 /** 从加赛合并行中剔除初赛前 50 名。 */

@@ -11,7 +11,7 @@ Bun 本地服务与 Cloudflare Worker 共用同一套 Hono 路由（`src/server/
 | `GET /api/board/<id>` | 单个榜单，`id` = `total` / `q600071` / `600071` |
 | `GET /api/playoff` | 加赛首屏：入口、提测配置、题目介绍（`entry` / `submission` / `question`） |
 | `GET /api/playoff/leaderboard?board=combined\|performance\|prompt[&questionId=600081][&pageNo=1&pageSize=100]` | 加赛榜；不传 `questionId` 时服务端从 `playoff/entry` 取；`pageNo` 1–10000，`pageSize` 1–100 |
-| `GET /api/playoff/export.csv?sort=combined\|performance\|prompt[&province=<省份全称>]` | 一题两子题合并 CSV；按 `sort` 排序，学校/省份/导师按 `groupId` 从初赛快照补齐；兼容旧 `board` 参数 |
+| `GET /api/playoff/export.csv?sort=combined\|performance\|prompt[&province=<省份全称>]` | 一题两子题合并 CSV（含初赛第 51 名起的全部队伍）；按 `sort` 排序，学校/省份/导师按 `groupId` 从初赛快照补齐；兼容旧 `board` 参数 |
 | `GET /api/export.csv?board=<id>[&province=<省份全称>]` | CSV（UTF-8 BOM，含省份列）；`province=__none__` 导出未填省份的 |
 | `GET /api/online` | 实时推送连接数 `{ sockets, lastPush, intervalMs }` |
 | `WS /api/stream` | 推送：每帧是 gzip 后的快照 JSON（浏览器用 `DecompressionStream` 解） |
@@ -72,7 +72,7 @@ Bun 本地服务与 Cloudflare Worker 共用同一套 Hono 路由（`src/server/
 - 三个榜都返回 `rows`；`combined` 额外要求 `performanceTop` / `promptTop` 是数组（官方前端会校验）。前端把三榜按 `groupId` 合并成一题一行：综合、性能、Prompt 各列并存，排序只切换当前排名依据，不改变「一次提测、两个子题」的数据关系。
 - `submissionOptions` 返回 `submissionType=CODE`、`evaluationMode=STANDARD_PULL`、`resultFormat=PLAYOFF`、`maxScore=80`、`repoSlot=gitUrlPlus`，即「提交 Git 仓库地址，平台自动拉取评测」。
 - `participation` 需要登录态，因此公开站点只能展示榜单和提测配置，不能展示「我的提测记录」。
-- 初赛最终排名前 50 名直接晋级决赛，不参加加赛；页面、统计和 CSV 都会按初赛总榜前 50 名剔除，避免这 50 支队伍混入加赛榜。加赛在原有 50 个决赛名额基础上新增 50 个名额，参加加赛的队伍按「初赛分 + 加赛综合分」的总分排名，取前 50 名获得新增名额。页面「晋级形势」按加赛榜第 50 名总分做临时晋级线分析，官方榜单页面展示前 80 名（含并列），最终以官方规则为准。
+- 初赛最终排名前 50 名直接晋级决赛，不参加加赛；页面、统计和 CSV 都会按初赛总榜前 50 名剔除，避免这 50 支队伍混入加赛榜。初赛第 51 名起的队伍全部并入加赛总榜；尚未提测时先显示初赛分（加赛分/两个子题分为空），提测后自动补上加赛成绩。加赛在原有 50 个决赛名额基础上新增 50 个名额，参加加赛的队伍按「初赛分 + 加赛综合分」的总分排名，取前 50 名获得新增名额。页面「晋级形势」按加赛榜第 50 名总分做临时晋级线分析，官方榜单页面展示前 80 名（含并列），最终以官方规则为准。
 - `playoff/entry.startsAt` 当前返回 15:00，但官方提测实际从 12:00 开始；页面状态、倒计时和赛程按 12:00 展示。
 - 加赛榜接口在 Worker 边缘缓存 30 秒（stale 120 秒），页面每 30 秒轮询一次，避免开赛后高频请求打满免费额度。
 - 加赛 ETA 已按赛题 `q600081` 接入：`submittedAt` 为提交时间，规范化字段 `evaluatedAt` 为评测完成时间（毫秒），按上游 `evaluatedAt` / `completedAt` / `updatedAt` 的顺序解析。三种分榜共用该赛题的样本模型；暂无出分样本时返回 `insufficient_data`，1–2 条样本时显示“出分样本不足 3 条”，样本齐备后给出预计出分时刻与 80% 区间。

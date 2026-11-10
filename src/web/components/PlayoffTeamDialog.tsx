@@ -70,6 +70,11 @@ export function PlayoffTeamDialog({ team, onClose }: { team: PlayoffTeamRow | nu
           </header>
 
           <div className="space-y-4 overflow-y-auto px-5 py-4">
+            {team.playoffScore == null && team.combinedRank == null && (
+              <div className="rounded-lg border border-amber-200 bg-amber-50/60 px-3 py-2 text-sm text-amber-800 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-200">
+                尚未提测，当前显示初赛分；提交后会自动补上性能、Prompt 与加赛综合分。
+              </div>
+            )}
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
               <Box label="综合名次" value={team.combinedRank == null ? '—' : <RankBadge rank={team.combinedRank} />} />
               <Box label="加赛综合分" value={score(team.playoffScore)} />

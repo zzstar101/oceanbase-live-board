@@ -4,6 +4,7 @@ import { createApi } from '../src/server/app.ts';
 import {
   buildPlayoffTeamMeta,
   excludePlayoffTop50,
+  mergeInitialPlayoffTeams,
   mergePlayoffTeams,
   playoffRowToRow,
   playoffRowToTimingRow,
@@ -383,5 +384,31 @@ describe('加赛一题两子题合并', () => {
       { key: 'g51', groupId: 51, name: '队51' },
     ] as PlayoffTeamRow[];
     expect(excludePlayoffTop50(teams, initial).map((t) => t.name)).toEqual(['队51']);
+  });
+
+  test('初赛 51 名起全部并入总榜，已提测队伍保留加赛分', () => {
+    const rows = Array.from({ length: 52 }, (_, i) => ({
+      rank: 1,
+      name: `队${i + 1}`,
+      school: '某大学',
+      advisor: '某老师',
+      province: '浙江省',
+      score: 620,
+      rawScore: null,
+      bestSubmit: null,
+      updated: null,
+      userId: null,
+      groupId: i + 1,
+      recordId: null,
+    }));
+    const initial = [{ id: 'total', title: '总榜', kind: 'total' as const, questionId: null, error: null, stale: false, reportedTotal: 52, source: '', rows }] as Board[];
+    const submitted: PlayoffTeamRow[] = [
+      { key: 'g51', groupId: 51, name: '队51', school: '', advisor: '', province: '', performance: 1, performancePoints: 40, performanceRank: 1, promptRawScore: 90, promptPoints: 39, promptRank: 1, combinedRank: 1, playoffScore: 79, preliminaryScore: 620, totalScore: 699, submittedAt: 1, evaluatedAt: null },
+    ];
+    const merged = mergeInitialPlayoffTeams(submitted, initial);
+    expect(merged).toHaveLength(2);
+    expect(merged.find((t) => t.key === 'g51')).toMatchObject({ totalScore: 699, school: '某大学' });
+    expect(merged.find((t) => t.key === 'g52')).toMatchObject({ totalScore: 620, combinedRank: null, playoffScore: null });
+    expect(sortPlayoffTeams(merged, 'combined').map((t) => t.name)).toEqual(['队51', '队52']);
   });
 });

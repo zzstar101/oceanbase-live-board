@@ -2,7 +2,7 @@
 // 运行时差异（快照来源、推送、访问统计存储）通过 ApiOptions 注入。
 import { Hono, type Context, type Env } from 'hono';
 import { cors } from 'hono/cors';
-import { buildPlayoffTeamMeta, excludePlayoffTop50, mergePlayoffTeams, sortPlayoffTeams, type PlayoffSort, type PlayoffTeamRow } from '../shared/playoff.ts';
+import { buildPlayoffTeamMeta, excludePlayoffTop50, mergeInitialPlayoffTeams, mergePlayoffTeams, sortPlayoffTeams, type PlayoffSort, type PlayoffTeamRow } from '../shared/playoff.ts';
 import { filterByProvince } from '../shared/province.ts';
 import type { Board, HealthInfo, HitEvent, OnlineInfo, Snapshot, StatsSummary } from '../shared/types.ts';
 import { contentDisposition, csvFilename, playoffTeamsToCsv, rowsToCsv } from './csv.ts';
@@ -128,7 +128,9 @@ export function createApi<E extends Env = Env>(opts: ApiOptions<E>) {
       const meta = buildPlayoffTeamMeta(initial?.boards ?? []);
       // 初赛前 50 名直接晋级决赛，不参加加赛；合并榜和导出同样剔除。
       const mergedAll: PlayoffTeamRow[] = mergePlayoffTeams({ combined, performance, prompt }, meta);
-      const merged = excludePlayoffTop50(mergedAll, initial?.boards);
+      // 初赛 51 名起都进入总榜；未提测的队伍先保留初赛分。
+      const withInitial = mergeInitialPlayoffTeams(mergedAll, initial?.boards);
+      const merged = excludePlayoffTop50(withInitial, initial?.boards);
       const province = c.req.query('province') || '';
       const rows = sortPlayoffTeams(filterByProvince(merged, province), sort);
       const titles: Record<PlayoffSort, string> = {
