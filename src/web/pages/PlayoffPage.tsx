@@ -11,6 +11,7 @@ import {
   playoffSortRank,
   playoffSortScore,
   playoffStartsAt,
+  playoffTeamKey,
   playoffTeamToRow,
   playoffTop50Keys,
   searchPlayoffTeams,
@@ -26,6 +27,7 @@ import { FeedPanel } from '../components/FeedPanel.tsx';
 import { PlayoffStandingPanel, PlayoffTimingPanel } from '../components/PlayoffPanels.tsx';
 import { PlayoffStarBar } from '../components/PlayoffStarBar.tsx';
 import { LeaderTable } from '../components/LeaderTable.tsx';
+import { rowKey } from '../../shared/insights.ts';
 import { PlayoffTeamDialog } from '../components/PlayoffTeamDialog.tsx';
 import { ProvinceMap } from '../components/ProvinceMap.tsx';
 import { ScoreDist } from '../components/ScoreDist.tsx';
@@ -283,6 +285,13 @@ export function PlayoffPage() {
   );
   // 总榜沿用初赛榜的列结构与交互：排名、队伍、学校、省份、导师、成绩、更新时间。
   const tableRows = useMemo(() => shownRows.map((t, i) => toSortRow(t, sort, i)), [shownRows, sort]);
+  /** 加赛总榜同分按提交时间先后排序，所以名次按排序后的完整队列连续编号，不产生并列。 */
+  const combinedRankOf = useMemo(() => {
+    if (sort !== 'combined') return null;
+    const ranks = new Map<string, number>();
+    sorted.forEach((t, i) => ranks.set(playoffTeamKey(t), i + 1));
+    return (r: Row) => ranks.get(rowKey(r)) ?? null;
+  }, [sorted, sort]);
   const tableBoard: Board = useMemo(
     () => ({
       ...totalBoard,
@@ -417,6 +426,7 @@ export function PlayoffPage() {
                           key={sort}
                           board={tableBoard}
                           rows={tableRows}
+                          rankOf={combinedRankOf ?? undefined}
                           province={search.province || ''}
                           query={search.q || ''}
                           onOpen={openTeam}

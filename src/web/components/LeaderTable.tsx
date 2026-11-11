@@ -84,6 +84,7 @@ export function LeaderTable({
   footerNote,
   footerPrefix,
   timeHeader,
+  rankOf,
 }: {
   board: Board;
   rows: Row[];
@@ -96,6 +97,8 @@ export function LeaderTable({
   footerNote?: string;
   footerPrefix?: string;
   timeHeader?: string;
+  /** 可选：覆盖行内显示的名次（用于同分按提交时间破并列）。 */
+  rankOf?: (row: Row) => number | null;
 }) {
   const { isStarred } = useStars();
   const changes = useRecentChanges(board.id);
@@ -121,10 +124,11 @@ export function LeaderTable({
         cell: (c) => {
           const r = c.row.original;
           const ch = changes.get(rowKey(r));
+          const rank = rankOf?.(r) ?? r.rank;
           return (
             <div className="flex items-center gap-1.5">
-              <RankBadge rank={r.rank} />
-              {ch && ch.prevRank != null && <RankDelta d={ch.prevRank - r.rank} />}
+              <RankBadge rank={rank} />
+              {ch && ch.prevRank != null && <RankDelta d={ch.prevRank - rank} />}
               {local && <span className="num text-[11px] text-slate-400">省内 {local.get(r)}</span>}
             </div>
           );
@@ -225,7 +229,7 @@ export function LeaderTable({
         meta: { className: 'hidden sm:table-cell text-right w-[10.5rem]' },
       }),
     ]),
-    [changes, isStarred, local, words, isTrack, scoreDigits, scoreHeader, timeHeader],
+    [changes, isStarred, local, words, isTrack, scoreDigits, scoreHeader, timeHeader, rankOf],
   );
 
   const table = useTable({

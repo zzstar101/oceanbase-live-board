@@ -386,6 +386,22 @@ describe('加赛一题两子题合并', () => {
     expect(excludePlayoffTop50(teams, initial).map((t) => t.name)).toEqual(['队51']);
   });
 
+
+  test('加赛总榜同分按提交时间先后，不并列', () => {
+    const base = {
+      school: '', advisor: '', province: '',
+      performance: null, performancePoints: null, performanceRank: null,
+      promptRawScore: null, promptPoints: null, promptRank: null,
+      playoffScore: null, preliminaryScore: 620, totalScore: 620, evaluatedAt: null,
+    } as const;
+    const teams: PlayoffTeamRow[] = [
+      { ...base, key: 'g1', groupId: 1, name: '晚提交队', combinedRank: null, submittedAt: 3000 },
+      { ...base, key: 'g2', groupId: 2, name: '早提交队', combinedRank: null, submittedAt: 1000 },
+      { ...base, key: 'g3', groupId: 3, name: '未提测队', combinedRank: null, submittedAt: null },
+    ];
+    expect(sortPlayoffTeams(teams, 'combined').map((t) => t.name)).toEqual(['早提交队', '晚提交队', '未提测队']);
+  });
+
   test('初赛 51 名起全部并入总榜，已提测队伍保留加赛分', () => {
     const rows = Array.from({ length: 52 }, (_, i) => ({
       rank: 1,

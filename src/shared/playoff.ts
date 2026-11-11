@@ -214,24 +214,28 @@ export function playoffSortScore(r: PlayoffTeamRow, sort: PlayoffSort): number |
 
 /** 按官方名次排序；缺该维度成绩的队伍固定排最后，再按分数降序。 */
 export function sortPlayoffTeams(rows: PlayoffTeamRow[], sort: PlayoffSort): PlayoffTeamRow[] {
+  // 加赛总榜同分时必须看提交时间：先提交的排前面，因此不产生并列名次。
+  // 未提测的初赛队伍没有 submittedAt，保持沉底并按初赛总分排序。
+  const bySubmission = (a: PlayoffTeamRow, b: PlayoffTeamRow) =>
+    (a.submittedAt ?? Number.POSITIVE_INFINITY) - (b.submittedAt ?? Number.POSITIVE_INFINITY);
   return rows.slice().sort((a, b) => {
     const ar = playoffSortRank(a, sort);
     const br = playoffSortRank(b, sort);
     if (sort === 'combined') {
       // 已出分的队伍按官方综合名次在前；尚未提测的初赛队伍按初赛总分排在后面。
       if (ar != null && br != null) {
-        return ar - br || (playoffSortScore(b, sort) ?? -Infinity) - (playoffSortScore(a, sort) ?? -Infinity) || a.name.localeCompare(b.name, 'zh-CN');
+        return ar - br || (playoffSortScore(b, sort) ?? -Infinity) - (playoffSortScore(a, sort) ?? -Infinity) || bySubmission(a, b) || a.name.localeCompare(b.name, 'zh-CN');
       }
       if (ar != null) return -1;
       if (br != null) return 1;
-      return (playoffSortScore(b, sort) ?? -Infinity) - (playoffSortScore(a, sort) ?? -Infinity) || a.name.localeCompare(b.name, 'zh-CN');
+      return (playoffSortScore(b, sort) ?? -Infinity) - (playoffSortScore(a, sort) ?? -Infinity) || bySubmission(a, b) || a.name.localeCompare(b.name, 'zh-CN');
     }
     if (ar == null && br == null) {
-      return (playoffSortScore(b, sort) ?? -Infinity) - (playoffSortScore(a, sort) ?? -Infinity) || a.name.localeCompare(b.name, 'zh-CN');
+      return (playoffSortScore(b, sort) ?? -Infinity) - (playoffSortScore(a, sort) ?? -Infinity) || bySubmission(a, b) || a.name.localeCompare(b.name, 'zh-CN');
     }
     if (ar == null) return 1;
     if (br == null) return -1;
-    return ar - br || (playoffSortScore(b, sort) ?? -Infinity) - (playoffSortScore(a, sort) ?? -Infinity) || a.name.localeCompare(b.name, 'zh-CN');
+    return ar - br || (playoffSortScore(b, sort) ?? -Infinity) - (playoffSortScore(a, sort) ?? -Infinity) || bySubmission(a, b) || a.name.localeCompare(b.name, 'zh-CN');
   });
 }
 
