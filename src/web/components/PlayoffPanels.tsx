@@ -127,7 +127,7 @@ export function PlayoffTimingPanel({ teams, onOpen }: { teams: PlayoffTeamRow[];
       <p className="text-sm leading-relaxed text-slate-600 dark:text-slate-300">
         {evaluated.length
           ? '上游返回了成绩完成时间，下面的耗时按「成绩完成时间 − 提交时间」计算；样本只包含当前已加载且两项时间都存在的队伍。'
-          : '当前拿到的 rows 只有成绩提交时间，还没有评测开始/完成时间（可能因为刚开赛）；因此暂时无法可靠计算提交→出分耗时或预计出分。这里只展示提交时间分布，拿到新字段后会自动切换到真实耗时。'}
+          : '上游公开榜目前只返回成绩提交时间，没有评测开始/完成时间（任务记录接口需要登录）；因此暂时无法可靠计算提交→出分耗时或预计出分。这里只展示提交时间分布，拿到新字段后会自动切换到真实耗时。'}
       </p>
 
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">

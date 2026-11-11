@@ -183,7 +183,7 @@ export interface PlayoffRow {
   totalScore: number | null;
   /** 成绩提交日（毫秒时间戳；上游可能给毫秒数或 ISO 字符串） */
   submittedAt: number | null;
-  /** 上游成绩完成/更新时间（evaluatedAt、completedAt 或 updatedAt）；缺失时无出分样本。 */
+  /** 预留：上游可能返回的成绩完成/更新时间；当前公开加赛榜不返回，缺失时无出分样本。 */
   evaluatedAt?: number | null;
 }
 
